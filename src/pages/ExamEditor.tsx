@@ -15,6 +15,8 @@ import {
 import { useAuth } from '../contexts/AuthContext';
 import { examService } from '../services/examService';
 import type { Question, QuestionOption, QuestionType } from '../types';
+import { WordImportModal } from '../components/exam/WordImportModal';
+import type { ParsedImportItem } from '../utils/wordExamParser';
 
 export const ExamEditor: React.FC = () => {
   const { examId } = useParams<{ examId: string }>();
@@ -30,7 +32,7 @@ export const ExamEditor: React.FC = () => {
   const [maxViolations, setMaxViolations] = useState(3);
   const [isPublished, setIsPublished] = useState(true);
 
-  // Questions and Correct Answer Keys
+  // Questions and Correct Answer Keys (default 4 options)
   const [questions, setQuestions] = useState<Question[]>([
     {
       id: 'q_' + Math.random().toString(36).substring(2, 7),
@@ -40,6 +42,8 @@ export const ExamEditor: React.FC = () => {
       options: [
         { id: 'opt_1', text: '' },
         { id: 'opt_2', text: '' },
+        { id: 'opt_3', text: '' },
+        { id: 'opt_4', text: '' },
       ],
     },
   ]);
@@ -50,6 +54,7 @@ export const ExamEditor: React.FC = () => {
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [isWordModalOpen, setIsWordModalOpen] = useState(false);
 
   // Load existing exam if editing
   useEffect(() => {
@@ -90,7 +95,7 @@ export const ExamEditor: React.FC = () => {
     loadExam();
   }, [examId, isEditing]);
 
-  // Question manipulation
+  // Question manipulation (defaults to 4 options)
   const addQuestion = (type: QuestionType = 'single_choice') => {
     const newQId = 'q_' + Math.random().toString(36).substring(2, 7);
     let options: QuestionOption[] = [];
@@ -105,6 +110,7 @@ export const ExamEditor: React.FC = () => {
         { id: 'opt_1', text: '' },
         { id: 'opt_2', text: '' },
         { id: 'opt_3', text: '' },
+        { id: 'opt_4', text: '' },
       ];
     }
 
@@ -118,6 +124,35 @@ export const ExamEditor: React.FC = () => {
         options,
       },
     ]);
+  };
+
+  const handleWordImport = (imported: ParsedImportItem[], replaceExisting: boolean) => {
+    const newQuestions: Question[] = imported.map(item => ({
+      id: item.id,
+      prompt: item.prompt,
+      type: item.type,
+      points: item.points,
+      options: item.options,
+    }));
+
+    const newCorrectMap: Record<string, string[]> = {};
+    imported.forEach(item => {
+      newCorrectMap[item.id] = item.correctOptionIds;
+    });
+
+    if (replaceExisting) {
+      setQuestions(newQuestions);
+      setCorrectAnswers(newCorrectMap);
+    } else {
+      setQuestions(prev => {
+        // If there is only 1 initial blank question, replace it cleanly
+        if (prev.length === 1 && !prev[0].prompt && prev[0].options.every(o => !o.text)) {
+          return newQuestions;
+        }
+        return [...prev, ...newQuestions];
+      });
+      setCorrectAnswers(prev => ({ ...prev, ...newCorrectMap }));
+    }
   };
 
   const removeQuestion = (qIndex: number) => {
@@ -418,7 +453,16 @@ export const ExamEditor: React.FC = () => {
               <span>Preguntas ({questions.length})</span>
             </h2>
 
-            <div className="flex items-center gap-2">
+            <div className="flex flex-wrap items-center gap-2">
+              <button
+                type="button"
+                onClick={() => setIsWordModalOpen(true)}
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-blue-600/20 hover:bg-blue-600/30 border border-blue-500/30 text-blue-300 text-xs font-semibold transition shadow-sm"
+              >
+                <FileText className="w-3.5 h-3.5" />
+                <span>Importar desde Word</span>
+              </button>
+
               <button
                 type="button"
                 onClick={() => addQuestion('single_choice')}
@@ -594,6 +638,13 @@ export const ExamEditor: React.FC = () => {
           </div>
         </div>
       </form>
+
+      {/* Word Import Modal */}
+      <WordImportModal
+        isOpen={isWordModalOpen}
+        onClose={() => setIsWordModalOpen(false)}
+        onImport={handleWordImport}
+      />
     </div>
   );
 };
