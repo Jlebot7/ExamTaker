@@ -9,7 +9,8 @@ import {
   where, 
   onSnapshot 
 } from 'firebase/firestore';
-import { db, isFirebaseConfigured } from './firebaseConfig';
+import { signInAnonymously } from 'firebase/auth';
+import { db, auth, isFirebaseConfigured } from './firebaseConfig';
 import type { Exam, ExamKey, Question } from '../types';
 import { 
   getMockExams, 
@@ -195,11 +196,29 @@ export const examService = {
    */
   async getExam(examId: string): Promise<Exam | null> {
     if (isFirebaseConfigured) {
-      let snap = await getDoc(doc(db, 'exams', examId));
-      if (!snap.exists() && examId !== examId.toUpperCase()) {
-        snap = await getDoc(doc(db, 'exams', examId.toUpperCase()));
+      // Ensure the visitor has an anonymous session so Firestore security rules can authenticate the read
+      if (!auth.currentUser) {
+        try {
+          await signInAnonymously(auth);
+        } catch (authErr) {
+          console.warn('Anonymous sign-in on getExam fallback:', authErr);
+        }
       }
-      return snap.exists() ? (snap.data() as Exam) : null;
+
+      try {
+        let snap = await getDoc(doc(db, 'exams', examId));
+        if (!snap.exists() && examId !== examId.toUpperCase()) {
+          snap = await getDoc(doc(db, 'exams', examId.toUpperCase()));
+        }
+        return snap.exists() ? (snap.data() as Exam) : null;
+      } catch (err: unknown) {
+        const firebaseErr = err as { code?: string };
+        // If a document does not exist or is not published, strict rules can trigger permission-denied
+        if (firebaseErr?.code === 'permission-denied') {
+          return null;
+        }
+        throw err;
+      }
     } else {
       const exams = getMockExams();
       return exams.find(e => e.id.toLowerCase() === examId.toLowerCase()) || null;
