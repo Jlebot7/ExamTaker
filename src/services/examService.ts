@@ -1,16 +1,15 @@
 import { 
-  ref, 
-  set, 
-  get, 
-  push, 
-  remove, 
-  onValue, 
-  off, 
+  collection, 
+  doc, 
+  setDoc, 
+  getDoc, 
+  getDocs, 
+  deleteDoc, 
   query, 
-  orderByChild, 
-  equalTo 
-} from 'firebase/database';
-import { database, isFirebaseConfigured } from './firebaseConfig';
+  where, 
+  onSnapshot 
+} from 'firebase/firestore';
+import { db, isFirebaseConfigured } from './firebaseConfig';
 import type { Exam, ExamKey, Question } from '../types';
 import { 
   getMockExams, 
@@ -20,10 +19,10 @@ import {
 } from './mockStorage';
 
 /**
- * Service for Exam CRUD operations and answer key protection.
+ * Service for Exam CRUD operations and answer key protection using Cloud Firestore.
  * Follows the Zero Answer-Key Leak architecture:
  * - Public details in /exams/{examId}
- * - Answers key in /exam_keys/{examId}
+ * - Answers key strictly isolated in /exam_keys/{examId}
  */
 export const examService = {
   /**
@@ -36,11 +35,12 @@ export const examService = {
   ): Promise<string> {
     const totalPoints = questions.reduce((sum, q) => sum + (q.points || 1), 0);
     const createdAt = Date.now();
+    const pin = 'EX-' + Math.random().toString(36).substring(2, 7).toUpperCase();
 
     if (isFirebaseConfigured) {
-      const examsRef = ref(database, 'exams');
-      const newExamRef = push(examsRef);
-      const examId = newExamRef.key!;
+      const examId = pin;
+      const examRef = doc(db, 'exams', examId);
+      const keyRef = doc(db, 'exam_keys', examId);
 
       const fullExam: Exam = {
         ...examData,
@@ -65,16 +65,16 @@ export const examService = {
         keys: keysMap,
       };
 
-      // Write public exam payload
-      await set(ref(database, `exams/${examId}`), fullExam);
+      // Write public exam payload to Firestore
+      await setDoc(examRef, fullExam);
 
-      // Write isolated secret key payload
-      await set(ref(database, `exam_keys/${examId}`), examKey);
+      // Write isolated secret key payload to Firestore
+      await setDoc(keyRef, examKey);
 
       return examId;
     } else {
       // Local fallback
-      const examId = 'EXAM-' + Math.floor(1000 + Math.random() * 9000);
+      const examId = pin;
       const fullExam: Exam = {
         ...examData,
         id: examId,
@@ -114,16 +114,17 @@ export const examService = {
     const totalPoints = questions ? questions.reduce((sum, q) => sum + (q.points || 1), 0) : examData.totalPoints;
 
     if (isFirebaseConfigured) {
-      const currentSnap = await get(ref(database, `exams/${examId}`));
+      const examRef = doc(db, 'exams', examId);
+      const currentSnap = await getDoc(examRef);
       if (!currentSnap.exists()) throw new Error('El examen no existe');
       
       const updatedExam: Exam = {
-        ...currentSnap.val(),
+        ...(currentSnap.data() as Exam),
         ...examData,
-        ...(questions ? { questions, totalPoints } : {}),
+        ...(questions ? { questions, totalPoints: totalPoints! } : {}),
       };
 
-      await set(ref(database, `exams/${examId}`), updatedExam);
+      await setDoc(examRef, updatedExam, { merge: true });
 
       if (questions && correctOptionsMap) {
         const keysMap: Record<string, { correctOptionIds: string[]; points: number }> = {};
@@ -140,7 +141,8 @@ export const examService = {
           keys: keysMap,
         };
 
-        await set(ref(database, `exam_keys/${examId}`), examKey);
+        const keyRef = doc(db, 'exam_keys', examId);
+        await setDoc(keyRef, examKey, { merge: true });
       }
     } else {
       const exams = getMockExams();
@@ -179,10 +181,8 @@ export const examService = {
   async deleteExam(examId: string): Promise<void> {
     if (isFirebaseConfigured) {
       await Promise.all([
-        remove(ref(database, `exams/${examId}`)),
-        remove(ref(database, `exam_keys/${examId}`)),
-        remove(ref(database, `submissions/${examId}`)),
-        remove(ref(database, `logs/${examId}`)),
+        deleteDoc(doc(db, 'exams', examId)),
+        deleteDoc(doc(db, 'exam_keys', examId)),
       ]);
     } else {
       deleteMockExam(examId);
@@ -195,8 +195,11 @@ export const examService = {
    */
   async getExam(examId: string): Promise<Exam | null> {
     if (isFirebaseConfigured) {
-      const snap = await get(ref(database, `exams/${examId}`));
-      return snap.exists() ? snap.val() : null;
+      let snap = await getDoc(doc(db, 'exams', examId));
+      if (!snap.exists() && examId !== examId.toUpperCase()) {
+        snap = await getDoc(doc(db, 'exams', examId.toUpperCase()));
+      }
+      return snap.exists() ? (snap.data() as Exam) : null;
     } else {
       const exams = getMockExams();
       return exams.find(e => e.id.toLowerCase() === examId.toLowerCase()) || null;
@@ -208,15 +211,14 @@ export const examService = {
    */
   subscribeToExam(examId: string, callback: (exam: Exam | null) => void): () => void {
     if (isFirebaseConfigured) {
-      const examRef = ref(database, `exams/${examId}`);
-      onValue(examRef, snapshot => {
-        callback(snapshot.exists() ? snapshot.val() : null);
+      const examRef = doc(db, 'exams', examId);
+      const unsubscribe = onSnapshot(examRef, snapshot => {
+        callback(snapshot.exists() ? (snapshot.data() as Exam) : null);
       });
-      return () => off(examRef);
+      return unsubscribe;
     } else {
       const exam = getMockExams().find(e => e.id.toLowerCase() === examId.toLowerCase()) || null;
       callback(exam);
-      // Polling or simple timer mock
       const interval = setInterval(() => {
         const fresh = getMockExams().find(e => e.id.toLowerCase() === examId.toLowerCase()) || null;
         callback(fresh);
@@ -230,8 +232,8 @@ export const examService = {
    */
   async getExamKey(examId: string): Promise<ExamKey | null> {
     if (isFirebaseConfigured) {
-      const snap = await get(ref(database, `exam_keys/${examId}`));
-      return snap.exists() ? snap.val() : null;
+      const snap = await getDoc(doc(db, 'exam_keys', examId));
+      return snap.exists() ? (snap.data() as ExamKey) : null;
     } else {
       return getMockExamKey(examId);
     }
@@ -242,13 +244,13 @@ export const examService = {
    */
   async getExamsByTeacher(teacherUid: string): Promise<Exam[]> {
     if (isFirebaseConfigured) {
-      const examsRef = ref(database, 'exams');
-      const teacherQuery = query(examsRef, orderByChild('createdBy'), equalTo(teacherUid));
-      const snap = await get(teacherQuery);
-      if (!snap.exists()) return [];
+      const examsRef = collection(db, 'exams');
+      const teacherQuery = query(examsRef, where('createdBy', '==', teacherUid));
+      const snap = await getDocs(teacherQuery);
+      if (snap.empty) return [];
       const list: Exam[] = [];
       snap.forEach(child => {
-        list.push(child.val());
+        list.push(child.data() as Exam);
       });
       return list.sort((a, b) => b.createdAt - a.createdAt);
     } else {
