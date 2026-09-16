@@ -18,8 +18,10 @@ import {
   getMockSubmissions, 
   saveMockSubmission, 
   getMockLogs, 
-  addMockLog 
+  addMockLog,
+  getMockExamKey 
 } from './mockStorage';
+import { examService } from './examService';
 
 let serverTimeOffset = 0;
 
@@ -196,12 +198,28 @@ export const studentService = {
       if (!snap.exists()) throw new Error('Envío no encontrado');
       currentSubmission = snap.data() as Submission;
 
-      if (examKey) {
-        let earned = 0;
+      // 1. Lock submission state in Firestore
+      await updateDoc(subRef, {
+        submittedAt: timestamp,
+        status,
+      });
+
+      // 2. Fetch answer key for auto-grading (allowed because status is locked)
+      let activeKey = examKey;
+      if (!activeKey) {
+        try {
+          activeKey = await examService.getExamKey(examId);
+        } catch (keyErr) {
+          console.warn('Could not retrieve examKey automatically:', keyErr);
+        }
+      }
+
+      if (activeKey) {
         let total = 0;
-        Object.entries(examKey.keys).forEach(([qId, keyData]) => {
+        let earned = 0;
+        Object.entries(activeKey.keys).forEach(([qId, keyData]) => {
           total += keyData.points;
-          const studentAns = currentSubmission.answers[qId];
+          const studentAns = currentSubmission.answers?.[qId];
           if (Array.isArray(studentAns)) {
             const matches = studentAns.length === keyData.correctOptionIds.length &&
               studentAns.every(id => keyData.correctOptionIds.includes(id));
@@ -212,30 +230,38 @@ export const studentService = {
             }
           }
         });
-        finalScore = earned;
+
         maxScore = total;
+        finalScore = status === 'disqualified' ? 0 : earned;
+
+        await updateDoc(subRef, {
+          finalScore,
+          maxScore,
+        });
+      } else if (status === 'disqualified') {
+        finalScore = 0;
+        await updateDoc(subRef, { finalScore });
       }
 
-      const updates: Partial<Submission> = {
+      return {
+        ...currentSubmission,
         submittedAt: timestamp,
         status,
         finalScore,
         maxScore,
       };
-
-      await updateDoc(subRef, updates);
-      return { ...currentSubmission, ...updates };
     } else {
       const subs = getMockSubmissions(examId);
       currentSubmission = subs[studentUid];
       if (!currentSubmission) throw new Error('Envío no encontrado');
 
-      if (examKey) {
-        let earned = 0;
+      const activeKey = examKey || getMockExamKey(examId);
+      if (activeKey) {
         let total = 0;
-        Object.entries(examKey.keys).forEach(([qId, keyData]) => {
+        let earned = 0;
+        Object.entries(activeKey.keys).forEach(([qId, keyData]) => {
           total += keyData.points;
-          const studentAns = currentSubmission.answers[qId];
+          const studentAns = currentSubmission.answers?.[qId];
           if (Array.isArray(studentAns)) {
             const matches = studentAns.length === keyData.correctOptionIds.length &&
               studentAns.every(id => keyData.correctOptionIds.includes(id));
@@ -246,8 +272,11 @@ export const studentService = {
             }
           }
         });
-        finalScore = earned;
+
         maxScore = total;
+        finalScore = status === 'disqualified' ? 0 : earned;
+      } else if (status === 'disqualified') {
+        finalScore = 0;
       }
 
       currentSubmission.submittedAt = timestamp;
