@@ -79,7 +79,8 @@ service cloud.firestore {
     match /exam_keys/{examId} {
       allow read: if request.auth != null && (
         (resource != null && resource.data.createdBy == request.auth.uid) ||
-        get(/databases/$(database)/documents/exams/$(examId)).data.createdBy == request.auth.uid
+        get(/databases/$(database)/documents/exams/$(examId)).data.createdBy == request.auth.uid ||
+        get(/databases/$(database)/documents/exams/$(examId)/submissions/$(request.auth.uid)).data.status in ['submitted', 'timed_out', 'disqualified']
       );
 
       allow create: if request.auth != null &&
