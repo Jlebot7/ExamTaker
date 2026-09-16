@@ -1,0 +1,89 @@
+{
+  "rules": {
+    /* ====================================================================
+       1. EXÁMENES PÚBLICOS (/exams/{examId})
+       - Contiene: Título, preguntas, opciones de respuesta, tiempo límite y puntos.
+       - Aislamiento: NUNCA contiene las respuestas correctas.
+       - Lectura: Permitida a cualquier usuario autenticado (incluyendo alumnos anónimos)
+         si el examen está publicado, o al docente creador si está en borrador.
+       - Escritura: Exclusiva del docente creador.
+       ==================================================================== */
+    "exams": {
+      "$examId": {
+        ".read": "auth != null && (data.child('isPublished').val() === true || data.child('createdBy').val() === auth.uid)",
+        ".write": "auth != null && (!data.exists() ? newData.child('createdBy').val() === auth.uid : data.child('createdBy').val() === auth.uid)",
+        ".validate": "newData.hasChildren(['title', 'durationMinutes', 'maxViolations', 'isPublished', 'createdBy'])",
+        "title": {
+          ".validate": "newData.isString() && newData.val().length > 0 && newData.val().length <= 200"
+        },
+        "durationMinutes": {
+          ".validate": "newData.isNumber() && newData.val() >= 1 && newData.val() <= 360"
+        },
+        "maxViolations": {
+          ".validate": "newData.isNumber() && newData.val() >= 1 && newData.val() <= 20"
+        },
+        "createdBy": {
+          ".validate": "newData.isString()"
+        }
+      }
+    },
+
+    /* ====================================================================
+       2. CLAVES SECRETAS DE RESPUESTAS (/exam_keys/{examId})
+       - Contiene: Mapeo { [questionId]: correctOptionIds }.
+       - Seguridad Zero-Leak: ESTRICTAMENTE PROHIBIDA la lectura a los estudiantes.
+       - Lectura y Escritura: ÚNICAMENTE el docente creador del examen correspondiente.
+       ==================================================================== */
+    "exam_keys": {
+      "$examId": {
+        ".read": "auth != null && (root.child('exams').child($examId).child('createdBy').val() === auth.uid || data.child('createdBy').val() === auth.uid)",
+        ".write": "auth != null && (root.child('exams').child($examId).child('createdBy').val() === auth.uid || newData.child('createdBy').val() === auth.uid)"
+      }
+    },
+
+    /* ====================================================================
+       3. ENVÍOS Y RESPUESTAS (/submissions/{examId}/{studentUid})
+       - Contiene: Respuestas seleccionadas en tiempo real, hora de inicio,
+         infracciones acumuladas y estado (in_progress, submitted, timed_out, disqualified).
+       - Lectura: El alumno solo puede leer su propio intento. El docente creador
+         puede leer los intentos de todos los alumnos de su examen.
+       - Escritura: El alumno puede iniciar y actualizar sus respuestas mientras
+         su estado sea 'in_progress'. El docente puede escribir para calificar.
+       ==================================================================== */
+    "submissions": {
+      "$examId": {
+        "$studentUid": {
+          ".read": "auth != null && (auth.uid === $studentUid || root.child('exams').child($examId).child('createdBy').val() === auth.uid)",
+          ".write": "auth != null && (auth.uid === $studentUid || root.child('exams').child($examId).child('createdBy').val() === auth.uid)",
+          ".validate": "newData.hasChildren(['studentUid', 'studentName', 'status'])",
+          "answers": {
+            // El estudiante solo puede modificar respuestas si el examen no ha concluido
+            ".write": "auth != null && auth.uid === $studentUid && (!data.parent().child('status').exists() || data.parent().child('status').val() === 'in_progress')"
+          },
+          "status": {
+            ".validate": "newData.val() === 'in_progress' || newData.val() === 'submitted' || newData.val() === 'timed_out' || newData.val() === 'disqualified'"
+          }
+        }
+      }
+    },
+
+    /* ====================================================================
+       4. REGISTRO DE AUDITORÍA E INTEGRIDAD (/logs/{examId}/{studentUid})
+       - Contiene: Eventos de pérdida de foco (tab_blur, visibility_hidden, contextmenu, etc.).
+       - Lectura: El estudiante puede consultar sus advertencias; el docente tiene
+         acceso a la auditoría completa de todos los estudiantes.
+       - Escritura: El estudiante puede añadir eventos (push) a su propio nodo de logs.
+       ==================================================================== */
+    "logs": {
+      "$examId": {
+        "$studentUid": {
+          ".read": "auth != null && (auth.uid === $studentUid || root.child('exams').child($examId).child('createdBy').val() === auth.uid)",
+          ".write": "auth != null && (auth.uid === $studentUid || root.child('exams').child($examId).child('createdBy').val() === auth.uid)",
+          "$logId": {
+            ".validate": "newData.hasChildren(['timestamp', 'eventType', 'details', 'violationNumber'])"
+          }
+        }
+      }
+    }
+  }
+}
