@@ -58,6 +58,7 @@ export const StudentEntry: React.FC = () => {
           setErrorMessage(null);
         }
       } catch (err) {
+        console.error('Error al validar código de examen:', err);
         setErrorMessage('Error al consultar el código del examen.');
       } finally {
         setIsValidatingExam(false);
