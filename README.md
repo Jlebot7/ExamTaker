@@ -14,7 +14,7 @@
 
 **A high-integrity, serverless web evaluation platform with live anti-cheat telemetry, server-synchronized countdowns, zero-leak answer key isolation, and instant auto-grading.**
 
-[Explore Features](#-key-features) • [Architecture](#-zero-leak-security-architecture) • [Getting Started](#-getting-started) • [Anti-Cheat Engine](#-anti-cheat-telemetry-engine) • [Deployment](#-ci-cd--deployment)
+[Explore Features](#-key-features) • [Architecture](#-zero-leak-security-architecture) • [Getting Started](#-getting-started) • [Anti-Cheat Engine](#-anti-cheat-telemetry-engine) • [Deployment](#-ci-cd--deployment) • [Manual de Configuración](docs/MANUAL_DE_CONFIGURACION.md)
 
 </div>
 
