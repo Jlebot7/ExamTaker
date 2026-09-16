@@ -74,30 +74,31 @@ Para habilitar ambos métodos:
 
 ---
 
-### 2.3 Configuración de Realtime Database
-1. En el menú lateral izquierdo, ve a **Build > Realtime Database**.
-2. Haz clic en **"Crear base de datos"** (Create Database).
-3. Selecciona la ubicación geográfica más cercana (por ejemplo: `us-central1`).
-4. En el paso de reglas de seguridad, selecciona **"Iniciar en modo bloqueado"** (Start in locked mode) y confirma.
+### 2.3 Configuración de Cloud Firestore
+1. En el menú lateral izquierdo de la consola de Firebase, ve a **Build > Firestore Database**.
+2. Haz clic en **"Crear base de datos"** (Create database).
+3. Selecciona el modo de inicio de reglas: selecciona **"Comenzar en modo de prueba"** o **"Comenzar en modo bloqueado"** (desplegaremos nuestras reglas personalizadas en el siguiente paso).
+4. Elige la ubicación geográfica más cercana (por ejemplo: `us-central1` o `southamerica-east1`).
+5. Haz clic en **Habilitar**.
 
 ---
 
 ### 2.4 Despliegue de Reglas de Seguridad Zero-Leak
-ExamTaker cuenta con un archivo [`database.rules.json`](../database.rules.json) preconfigurado que garantiza:
-- Aislamiento absoluto de las respuestas correctas (`/exam_keys/{examId}`), las cuales jamás se exponen a los alumnos.
-- Inmutabilidad de los envíos de exámenes finalizados.
-- Registro de auditoría de telemetría anti-trampas en tiempo real (`/logs/{examId}`).
+ExamTaker cuenta con un archivo [`firestore.rules`](../firestore.rules) preconfigurado que garantiza:
+- Aislamiento absoluto de las claves secretas de respuestas (`/exam_keys/{examId}`), las cuales jamás se exponen a los estudiantes.
+- Acceso granular por documento y subcolección a los exámenes (`/exams/{examId}`), envíos (`/exams/{examId}/submissions/{studentUid}`) y logs de auditoría.
+- Inmutabilidad de los envíos de exámenes una vez finalizados.
 
 **Opción A — Desde la Consola Web de Firebase**:
-1. Dentro de **Realtime Database**, abre la pestaña **Reglas** (Rules).
-2. Borra el contenido existente y copia todo el contenido del archivo [`database.rules.json`](../database.rules.json) de este repositorio.
+1. Dentro de **Firestore Database**, abre la pestaña **Reglas** (Rules).
+2. Borra el contenido existente y copia todo el contenido del archivo [`firestore.rules`](../firestore.rules) de este repositorio.
 3. Haz clic en **"Publicar"** (Publish).
 
 **Opción B — Mediante Firebase CLI**:
 ```bash
 firebase login
 firebase use --add  # Selecciona el ID de tu proyecto creado
-firebase deploy --only database
+firebase deploy --only firestore:rules
 ```
 
 ---
@@ -109,7 +110,6 @@ firebase deploy --only database
 4. Firebase te mostrará un objeto JavaScript `firebaseConfig` con las siguientes claves:
    - `apiKey`
    - `authDomain`
-   - `databaseURL`
    - `projectId`
    - `storageBucket`
    - `messagingSenderId`
@@ -133,7 +133,6 @@ Abre `.env` y sustituye los valores con las credenciales obtenidas en el paso 2.
 ```env
 VITE_FIREBASE_API_KEY=AIzaSyTuClaveRealDeFirebase123456
 VITE_FIREBASE_AUTH_DOMAIN=tu-proyecto.firebaseapp.com
-VITE_FIREBASE_DATABASE_URL=https://tu-proyecto-default-rtdb.firebaseio.com
 VITE_FIREBASE_PROJECT_ID=tu-proyecto
 VITE_FIREBASE_STORAGE_BUCKET=tu-proyecto.firebasestorage.app
 VITE_FIREBASE_MESSAGING_SENDER_ID=123456789012
@@ -219,7 +218,6 @@ Para que el build de producción en GitHub Pages se conecte a tu Firebase real, 
 3. Agrega cada una de las siguientes variables con sus respectivos valores:
    - `VITE_FIREBASE_API_KEY`
    - `VITE_FIREBASE_AUTH_DOMAIN`
-   - `VITE_FIREBASE_DATABASE_URL`
    - `VITE_FIREBASE_PROJECT_ID`
    - `VITE_FIREBASE_STORAGE_BUCKET`
    - `VITE_FIREBASE_MESSAGING_SENDER_ID`
