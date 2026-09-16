@@ -11,9 +11,8 @@ service cloud.firestore {
        - Escritura: Exclusiva del docente creador.
        ==================================================================== */
     match /exams/{examId} {
-      allow read: if request.auth != null && (
-        resource.data.isPublished == true ||
-        resource.data.createdBy == request.auth.uid
+      allow read: if resource == null || resource.data.isPublished == true || (
+        request.auth != null && resource.data.createdBy == request.auth.uid
       );
       
       allow create: if request.auth != null &&
