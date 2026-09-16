@@ -180,8 +180,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     try {
       let uid = '';
       if (isFirebaseConfigured) {
-        const cred = await signInAnonymously(auth);
-        uid = cred.user.uid;
+        if (auth.currentUser) {
+          uid = auth.currentUser.uid;
+        } else {
+          const cred = await signInAnonymously(auth);
+          uid = cred.user.uid;
+        }
       } else {
         uid = 'student_' + Math.random().toString(36).substring(2, 9);
       }
