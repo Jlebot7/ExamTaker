@@ -182,25 +182,27 @@ export const StudentExam: React.FC = () => {
   return (
     <div className="min-h-screen flex flex-col bg-slate-950 text-slate-100 select-none">
       {/* Top Banner: Distraction-Free Exam Header */}
-      <header className="sticky top-0 z-30 border-b border-slate-800 bg-slate-950/95 backdrop-blur-md px-4 sm:px-6 py-3">
-        <div className="max-w-7xl mx-auto flex items-center justify-between gap-3">
+      <header className="sticky top-0 z-30 border-b border-slate-800 bg-slate-950/95 backdrop-blur-md px-3 sm:px-6 py-2.5 sm:py-3">
+        <div className="max-w-7xl mx-auto flex items-center justify-between gap-2 sm:gap-3">
           {/* Exam Title & Student Info */}
-          <div className="flex items-center gap-3 min-w-0">
+          <div className="flex items-center gap-2 sm:gap-3 min-w-0">
             <div className="w-8 h-8 rounded-lg bg-indigo-600/20 text-indigo-400 flex items-center justify-center font-bold text-xs shrink-0">
               {currentQuestionIndex + 1}/{totalQuestions}
             </div>
             <div className="min-w-0">
-              <h1 className="text-sm font-bold text-white truncate">{exam.title}</h1>
-              <p className="text-[11px] text-slate-400 truncate">
-                {user?.displayName} • {user?.studentCode}
+              <h1 className="text-xs sm:text-sm font-bold text-white truncate max-w-[120px] xs:max-w-[160px] sm:max-w-xs md:max-w-md">
+                {exam.title}
+              </h1>
+              <p className="text-[10px] sm:text-[11px] text-slate-400 truncate hidden xs:block">
+                {user?.displayName} {user?.studentCode ? `• ${user.studentCode}` : ''}
               </p>
             </div>
           </div>
 
           {/* Center: Synced Server Timer */}
-          <div className="flex items-center gap-2 shrink-0">
+          <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
             <div
-              className={`flex items-center gap-2 px-3 py-1.5 rounded-xl border font-mono text-sm font-bold transition ${
+              className={`flex items-center gap-1.5 px-2.5 sm:px-3 py-1 sm:py-1.5 rounded-xl border font-mono text-xs sm:text-sm font-bold transition ${
                 isCriticalTime
                   ? 'bg-rose-500/20 border-rose-500/50 text-rose-400 animate-pulse'
                   : isLowTime
@@ -208,14 +210,14 @@ export const StudentExam: React.FC = () => {
                   : 'bg-slate-900 border-slate-800 text-indigo-300'
               }`}
             >
-              <Clock className="w-4 h-4" />
+              <Clock className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
               <span>{formattedTime}</span>
             </div>
           </div>
 
           {/* Right Actions: Anti-cheat Badge & Submit */}
-          <div className="flex items-center gap-2 shrink-0">
-            {/* Violations Strike Meter */}
+          <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
+            {/* Violations Strike Meter: Desktop */}
             <div
               title="Monitoreo activo anti-trampa"
               className={`hidden sm:flex items-center gap-1.5 px-2.5 py-1 rounded-xl text-xs font-semibold border ${
@@ -227,10 +229,21 @@ export const StudentExam: React.FC = () => {
               }`}
             >
               <ShieldAlert className="w-3.5 h-3.5" />
-              <span className="font-mono">
+              <span className="font-mono text-[11px]">
                 {violationCount} / {exam.maxViolations} Infracciones
               </span>
             </div>
+
+            {/* Violations Badge: Mobile */}
+            {violationCount > 0 && (
+              <div
+                title={`${violationCount} infracciones`}
+                className="flex sm:hidden items-center gap-1 px-2 py-1 rounded-lg text-[10px] font-mono font-bold bg-amber-500/15 border border-amber-500/30 text-amber-400"
+              >
+                <ShieldAlert className="w-3 h-3" />
+                <span>{violationCount}</span>
+              </div>
+            )}
 
             <button
               onClick={toggleFullscreen}
@@ -242,17 +255,49 @@ export const StudentExam: React.FC = () => {
 
             <button
               onClick={() => setShowSubmitModal(true)}
-              className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white font-semibold text-xs shadow-md shadow-emerald-600/25 transition"
+              className="inline-flex items-center gap-1 sm:gap-1.5 px-2.5 sm:px-3.5 py-1.5 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white font-semibold text-xs shadow-md shadow-emerald-600/25 transition"
             >
-              <Send className="w-3.5 h-3.5" />
-              <span>Finalizar</span>
+              <Send className="w-3 h-3 sm:w-3.5 sm:h-3.5" />
+              <span className="hidden xs:inline">Finalizar</span>
             </button>
           </div>
         </div>
       </header>
 
+      {/* Mobile/Tablet Quick Navigator Strip (Visible below lg) */}
+      <div className="lg:hidden sticky top-[53px] sm:top-[61px] z-20 bg-slate-950/95 border-b border-slate-800/80 px-3 py-2 backdrop-blur-md">
+        <div className="flex items-center justify-between gap-2 mb-1.5 text-[11px] text-slate-400">
+          <span className="font-semibold text-slate-300">Navegador Rápido:</span>
+          <span className="font-mono text-[10px]">
+            {answeredCount}/{totalQuestions} respondidas
+          </span>
+        </div>
+        <div className="flex items-center gap-1.5 overflow-x-auto pb-1 scrollbar-none touch-pan-x">
+          {exam.questions.map((q, idx) => {
+            const isCurrent = idx === currentQuestionIndex;
+            const isAnswered = Boolean(answers[q.id]);
+
+            return (
+              <button
+                key={q.id}
+                onClick={() => setCurrentQuestionIndex(idx)}
+                className={`min-w-[34px] h-[34px] rounded-lg font-mono text-xs font-bold shrink-0 flex items-center justify-center transition border ${
+                  isCurrent
+                    ? 'border-indigo-500 bg-indigo-600 text-white ring-2 ring-indigo-400/40 scale-105'
+                    : isAnswered
+                    ? 'border-emerald-500/40 bg-emerald-500/20 text-emerald-400'
+                    : 'border-slate-800 bg-slate-900 text-slate-400'
+                }`}
+              >
+                {idx + 1}
+              </button>
+            );
+          })}
+        </div>
+      </div>
+
       {/* Main Examination Layout */}
-      <div className="flex-1 max-w-7xl w-full mx-auto p-4 sm:p-6 grid grid-cols-1 lg:grid-cols-4 gap-6">
+      <div className="flex-1 max-w-7xl w-full mx-auto p-3 sm:p-6 grid grid-cols-1 lg:grid-cols-4 gap-4 sm:gap-6">
         {/* Left Column: Active Question Container */}
         <div className="lg:col-span-3 flex flex-col justify-between">
           <div className="glass-card rounded-2xl border border-slate-800 p-6 sm:p-8 space-y-6 shadow-xl">
@@ -359,8 +404,8 @@ export const StudentExam: React.FC = () => {
           </div>
         </div>
 
-        {/* Right Column: Question Navigator Palette */}
-        <div className="lg:col-span-1">
+        {/* Right Column: Question Navigator Palette (Desktop) */}
+        <div className="hidden lg:block lg:col-span-1">
           <div className="glass-card rounded-2xl border border-slate-800 p-5 sticky top-20">
             <h3 className="text-xs font-bold text-slate-300 uppercase tracking-wider mb-4">
               Mapa de Preguntas
