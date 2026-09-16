@@ -96,10 +96,10 @@ export const TeacherDashboard: React.FC = () => {
           </p>
         </div>
 
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-3 w-full sm:w-auto">
           <Link
             to="/teacher/exam/new"
-            className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-gradient-to-r from-indigo-600 to-indigo-500 hover:from-indigo-500 hover:to-indigo-400 text-white font-semibold text-xs shadow-lg shadow-indigo-600/30 transition hover:scale-[1.02]"
+            className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-gradient-to-r from-indigo-600 to-indigo-500 hover:from-indigo-500 hover:to-indigo-400 text-white font-semibold text-xs shadow-lg shadow-indigo-600/30 transition hover:scale-[1.02]"
           >
             <Plus className="w-4 h-4" />
             <span>Crear Nueva Evaluación</span>
@@ -108,7 +108,7 @@ export const TeacherDashboard: React.FC = () => {
       </div>
 
       {/* Metrics Row */}
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 my-6">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 my-6">
         <div className="glass-card p-5 rounded-2xl border border-slate-800">
           <div className="flex items-center justify-between">
             <span className="text-xs font-semibold text-slate-400">Total de Evaluaciones</span>
