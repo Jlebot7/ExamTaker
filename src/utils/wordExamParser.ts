@@ -12,7 +12,7 @@ export interface ParsedImportItem {
 
 /**
  * Extracts plain text from a Word (.docx) file directly in the browser.
- * A .docx file is a ZIP archive containing word/document.xml.
+ * Intelligently detects bold formatting (Testportal style) on options to mark correct answers.
  */
 export async function extractTextFromDocx(file: File): Promise<string> {
   const arrayBuffer = await file.arrayBuffer();
@@ -31,6 +31,10 @@ export async function extractTextFromDocx(file: File): Promise<string> {
 
   for (let i = 0; i < paragraphs.length; i++) {
     const p = paragraphs[i];
+
+    // Detect if this paragraph contains bold text (w:b)
+    const isBold = p.getElementsByTagName('w:b').length > 0;
+
     const textNodes = p.getElementsByTagName('w:t');
     let pText = '';
     for (let j = 0; j < textNodes.length; j++) {
@@ -38,7 +42,13 @@ export async function extractTextFromDocx(file: File): Promise<string> {
     }
     const trimmed = pText.trim();
     if (trimmed) {
-      lines.push(trimmed);
+      // If it looks like an option (e.g., A) or B.) and is bold, mark it with asterisk for the parser
+      const optionPrefixRegex = /^[a-hA-H][.):-]\s+/;
+      if (isBold && optionPrefixRegex.test(trimmed) && !trimmed.startsWith('*')) {
+        lines.push('*' + trimmed);
+      } else {
+        lines.push(trimmed);
+      }
     }
   }
 
@@ -47,13 +57,7 @@ export async function extractTextFromDocx(file: File): Promise<string> {
 
 /**
  * Parses raw text formatted in standard Testportal / Word test format into structured questions.
- * Supports:
- * - Numbered questions (1. , 1) , Pregunta 1: )
- * - Options (A), B), C), D) / a., b., c., d. / - / •)
- * - Correct answers marked with asterisk (*A) ... or A) ... *)
- * - Explicit answer line (Respuesta: C, Answer: C, Solución: B, etc.)
- * - True/False detection
- * - Multiple choice detection
+ * Handles numbered questions, lettered options, bold/asterisk correct answers, and answer lines.
  */
 export function parseQuestionsFromText(rawText: string): ParsedImportItem[] {
   if (!rawText || !rawText.trim()) return [];
@@ -75,21 +79,35 @@ export function parseQuestionsFromText(rawText: string): ParsedImportItem[] {
   let currentBlock: RawQuestionBlock | null = null;
 
   // Regex patterns
-  const questionStartRegex = /^(?:(?:pregunta|question|p)?\s*\d+[.):-]\s*|[¿?])/i;
-  const optionStartRegex = /^(\*?)\s*(?:\[([ xX])\]|[a-hA-H1-8][.):-])\s*(.*)$/;
+  const questionStartRegex = /^(?:(?:pregunta|question|p)?\s*\d+[.):-]\s+|[¿?])/i;
+  const optionStartRegex = /^(\*?)\s*(?:\[([ xX])\]|[a-hA-H][.):-])\s*(.*)$/;
   const answerLineRegex = /^(?:respuesta(?:s)?(?:\s+correcta(?:s)?)?|answer(?:s)?|soluci[oó]n|clave|r)\s*[:=]\s*(.+)$/i;
 
   for (let i = 0; i < rawLines.length; i++) {
     const line = rawLines[i];
 
-    // Check for explicit answer line (e.g., "Respuesta: C" or "Respuesta correcta: A, B")
+    // 1. Check for explicit answer line (e.g., "Respuesta: C" or "Respuesta correcta: A, B")
     const answerMatch = line.match(answerLineRegex);
     if (answerMatch && currentBlock) {
       currentBlock.answerKeyLine = answerMatch[1].trim();
       continue;
     }
 
-    // Check for option line (e.g., "A) París", "*B) Londres", "a. Roma", "[x] Bogotá")
+    // 2. Check for new question start (numbered e.g. "1. ", "2) ", "Pregunta 3: ")
+    const isNewQuestionStart = questionStartRegex.test(line);
+
+    if (isNewQuestionStart) {
+      if (currentBlock && currentBlock.promptLines.length > 0 && currentBlock.optionLines.length >= 2) {
+        blocks.push(currentBlock);
+      }
+      currentBlock = {
+        promptLines: [cleanPromptNumbering(line)],
+        optionLines: [],
+      };
+      continue;
+    }
+
+    // 3. Check for option line (e.g., "A) París", "*B) Londres", "a. Roma", "[x] Bogotá")
     const optionMatch = line.match(optionStartRegex);
     if (optionMatch && currentBlock && currentBlock.promptLines.length > 0) {
       let isAsterisk = Boolean(optionMatch[1]);
@@ -106,8 +124,8 @@ export function parseQuestionsFromText(rawText: string): ParsedImportItem[] {
         optionContent = optionContent.slice(0, -1).trim();
       }
 
-      // Detect letter prefix if exists
-      const letterMatch = line.match(/^[a-hA-H]/);
+      // Detect letter prefix
+      const letterMatch = line.replace(/^\*/, '').trim().match(/^[a-hA-H]/);
       const letterKey = letterMatch ? letterMatch[0].toUpperCase() : String.fromCharCode(65 + currentBlock.optionLines.length);
 
       currentBlock.optionLines.push({
@@ -118,28 +136,34 @@ export function parseQuestionsFromText(rawText: string): ParsedImportItem[] {
       continue;
     }
 
-    // Check for new question start
-    const isNewQuestionStart = questionStartRegex.test(line);
-
-    if (isNewQuestionStart || !currentBlock || (currentBlock.optionLines.length > 0 && !optionMatch)) {
-      if (currentBlock && currentBlock.promptLines.length > 0 && currentBlock.optionLines.length > 0) {
+    // 4. If current block already has options, non-option lines start a new unnumbered block or are ignored
+    if (currentBlock && currentBlock.optionLines.length > 0) {
+      if (currentBlock.promptLines.length > 0 && currentBlock.optionLines.length >= 2) {
         blocks.push(currentBlock);
       }
+      currentBlock = {
+        promptLines: [line],
+        optionLines: [],
+      };
+      continue;
+    }
+
+    // 5. Continuation of question prompt
+    if (currentBlock) {
+      currentBlock.promptLines.push(line);
+    } else {
       currentBlock = {
         promptLines: [cleanPromptNumbering(line)],
         optionLines: [],
       };
-    } else {
-      // Continuation of prompt
-      currentBlock.promptLines.push(line);
     }
   }
 
-  if (currentBlock && currentBlock.promptLines.length > 0 && currentBlock.optionLines.length > 0) {
+  if (currentBlock && currentBlock.promptLines.length > 0 && currentBlock.optionLines.length >= 2) {
     blocks.push(currentBlock);
   }
 
-  // Convert blocks into final Questions
+  // Convert raw blocks into structured Questions
   for (let b = 0; b < blocks.length; b++) {
     const block = blocks[b];
     const prompt = block.promptLines.join(' ').trim();
@@ -149,7 +173,7 @@ export function parseQuestionsFromText(rawText: string): ParsedImportItem[] {
     const options: QuestionOption[] = [];
     const correctOptionIds: string[] = [];
 
-    // Parse correct keys from answer line if present (e.g. "A", "A, B", "B y C")
+    // Parse correct keys from answer line if present
     const explicitKeys: string[] = [];
     if (block.answerKeyLine) {
       const tokens = block.answerKeyLine.toUpperCase().match(/[A-H]/g);
@@ -174,7 +198,7 @@ export function parseQuestionsFromText(rawText: string): ParsedImportItem[] {
       }
     }
 
-    // Auto-detect type
+    // Auto-detect question type
     let type: QuestionType = 'single_choice';
     const isTrueFalse = options.length === 2 && 
       ((options[0].text.toLowerCase().includes('verdader') && options[1].text.toLowerCase().includes('fals')) ||
@@ -186,7 +210,7 @@ export function parseQuestionsFromText(rawText: string): ParsedImportItem[] {
       type = 'multiple_choice';
     }
 
-    // Fallback: If no correct answer was indicated, mark first option as suggestion
+    // Fallback: If no correct answer was detected, default to first option
     if (correctOptionIds.length === 0 && options.length > 0) {
       correctOptionIds.push(options[0].id);
     }
