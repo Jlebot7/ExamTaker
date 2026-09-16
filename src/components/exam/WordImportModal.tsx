@@ -127,61 +127,61 @@ export const WordImportModal: React.FC<WordImportModalProps> = ({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 sm:p-6 overflow-y-auto bg-slate-950/80 backdrop-blur-md">
-      <div className="relative w-full max-w-4xl bg-slate-900 border border-slate-800 rounded-3xl shadow-2xl overflow-hidden flex flex-col max-h-[90vh]">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-4 md:p-6 overflow-y-auto bg-slate-950/85 backdrop-blur-md">
+      <div className="relative w-full max-w-4xl bg-slate-900 border border-slate-800 rounded-2xl sm:rounded-3xl shadow-2xl overflow-hidden flex flex-col max-h-[92vh] sm:max-h-[88vh]">
         {/* Header */}
-        <div className="px-6 py-5 border-b border-slate-800 flex items-center justify-between bg-slate-900/50">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-blue-500/10 border border-blue-500/30 flex items-center justify-center text-blue-400">
-              <FileText className="w-5 h-5" />
+        <div className="px-4 sm:px-6 py-3.5 sm:py-5 border-b border-slate-800 flex items-center justify-between bg-slate-900/50">
+          <div className="flex items-center gap-2.5 sm:gap-3">
+            <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-xl bg-blue-500/10 border border-blue-500/30 flex items-center justify-center text-blue-400 shrink-0">
+              <FileText className="w-4 h-4 sm:w-5 sm:h-5" />
             </div>
             <div>
-              <h2 className="text-lg font-bold text-white flex items-center gap-2">
+              <h2 className="text-sm sm:text-base md:text-lg font-bold text-white flex flex-wrap items-center gap-1.5 sm:gap-2">
                 Importar Preguntas desde Word
-                <span className="text-[10px] uppercase font-bold tracking-wider px-2 py-0.5 rounded-full bg-indigo-500/10 border border-indigo-500/30 text-indigo-400">
+                <span className="text-[9px] sm:text-[10px] uppercase font-bold tracking-wider px-2 py-0.5 rounded-full bg-indigo-500/10 border border-indigo-500/30 text-indigo-400">
                   Formato Testportal
                 </span>
               </h2>
-              <p className="text-xs text-slate-400">
+              <p className="text-[11px] sm:text-xs text-slate-400 hidden xs:block">
                 Carga un archivo .docx o pega el contenido copiado de tu documento.
               </p>
             </div>
           </div>
           <button
             onClick={onClose}
-            className="p-2 rounded-xl text-slate-400 hover:text-white hover:bg-slate-800 transition"
+            className="p-1.5 sm:p-2 rounded-xl text-slate-400 hover:text-white hover:bg-slate-800 transition"
           >
             <X className="w-5 h-5" />
           </button>
         </div>
 
         {/* Modal Body */}
-        <div className="flex-1 overflow-y-auto p-6 space-y-6">
+        <div className="flex-1 overflow-y-auto p-4 sm:p-6 space-y-4 sm:space-y-6">
           {/* Tabs */}
-          <div className="flex items-center justify-between border-b border-slate-800 pb-3">
-            <div className="flex gap-2">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 border-b border-slate-800 pb-3">
+            <div className="flex flex-wrap gap-2">
               <button
                 type="button"
                 onClick={() => setActiveTab('file')}
-                className={`px-4 py-2 rounded-xl text-xs font-semibold flex items-center gap-2 transition ${
+                className={`px-3 sm:px-4 py-1.5 sm:py-2 rounded-xl text-xs font-semibold flex items-center gap-1.5 sm:gap-2 transition ${
                   activeTab === 'file'
                     ? 'bg-blue-600 text-white shadow-lg shadow-blue-500/20'
                     : 'bg-slate-800/60 text-slate-400 hover:text-white hover:bg-slate-800'
                 }`}
               >
-                <Upload className="w-4 h-4" />
+                <Upload className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
                 Subir Archivo .docx
               </button>
               <button
                 type="button"
                 onClick={() => setActiveTab('text')}
-                className={`px-4 py-2 rounded-xl text-xs font-semibold flex items-center gap-2 transition ${
+                className={`px-3 sm:px-4 py-1.5 sm:py-2 rounded-xl text-xs font-semibold flex items-center gap-1.5 sm:gap-2 transition ${
                   activeTab === 'text'
                     ? 'bg-blue-600 text-white shadow-lg shadow-blue-500/20'
                     : 'bg-slate-800/60 text-slate-400 hover:text-white hover:bg-slate-800'
                 }`}
               >
-                <FileCode className="w-4 h-4" />
+                <FileCode className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
                 Pegar Texto de Word
               </button>
             </div>
@@ -348,7 +348,7 @@ export const WordImportModal: React.FC<WordImportModalProps> = ({
         </div>
 
         {/* Modal Footer */}
-        <div className="px-6 py-4 border-t border-slate-800 flex items-center justify-between bg-slate-900/50">
+        <div className="px-4 sm:px-6 py-3.5 sm:py-4 border-t border-slate-800 flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-slate-900/60">
           <label className="flex items-center gap-2 cursor-pointer text-xs text-slate-400 hover:text-slate-200">
             <input
               type="checkbox"
@@ -356,14 +356,14 @@ export const WordImportModal: React.FC<WordImportModalProps> = ({
               onChange={e => setReplaceExisting(e.target.checked)}
               className="rounded bg-slate-950 border-slate-700 text-blue-600 focus:ring-0"
             />
-            <span>Reemplazar las preguntas actuales del examen</span>
+            <span>Reemplazar las preguntas actuales</span>
           </label>
 
-          <div className="flex items-center gap-3">
+          <div className="flex items-center justify-end gap-2 sm:gap-3 w-full sm:w-auto">
             <button
               type="button"
               onClick={onClose}
-              className="px-4 py-2 text-xs font-semibold rounded-xl text-slate-400 hover:text-white hover:bg-slate-800 transition"
+              className="flex-1 sm:flex-initial px-3 sm:px-4 py-2 text-xs font-semibold rounded-xl text-slate-400 hover:text-white hover:bg-slate-800 transition text-center"
             >
               Cancelar
             </button>
@@ -371,10 +371,10 @@ export const WordImportModal: React.FC<WordImportModalProps> = ({
               type="button"
               disabled={parsedItems.length === 0}
               onClick={handleConfirmImport}
-              className="px-5 py-2 text-xs font-bold rounded-xl bg-blue-600 hover:bg-blue-500 disabled:opacity-40 disabled:cursor-not-allowed text-white shadow-lg shadow-blue-500/20 flex items-center gap-2 transition"
+              className="flex-1 sm:flex-initial px-4 sm:px-5 py-2 text-xs font-bold rounded-xl bg-blue-600 hover:bg-blue-500 disabled:opacity-40 disabled:cursor-not-allowed text-white shadow-lg shadow-blue-500/20 flex items-center justify-center gap-1.5 sm:gap-2 transition"
             >
               <Check className="w-4 h-4" />
-              Importar {parsedItems.length > 0 ? `${parsedItems.length} Preguntas` : ''}
+              <span>Importar {parsedItems.length > 0 ? `(${parsedItems.length})` : ''}</span>
             </button>
           </div>
         </div>
