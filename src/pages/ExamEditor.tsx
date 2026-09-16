@@ -447,13 +447,13 @@ export const ExamEditor: React.FC = () => {
 
         {/* Section: Question Builder */}
         <div className="space-y-6">
-          <div className="flex items-center justify-between">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
             <h2 className="text-lg font-bold text-white flex items-center gap-2">
               <Sparkles className="w-4 h-4 text-indigo-400" />
               <span>Preguntas ({questions.length})</span>
             </h2>
 
-            <div className="flex flex-wrap items-center gap-2">
+            <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto">
               <button
                 type="button"
                 onClick={() => setIsWordModalOpen(true)}
@@ -611,18 +611,18 @@ export const ExamEditor: React.FC = () => {
         </div>
 
         {/* Save Bar */}
-        <div className="sticky bottom-4 z-30 p-4 rounded-2xl glass-panel border border-slate-700 shadow-2xl flex items-center justify-between gap-4">
-          <div className="flex items-center gap-3">
+        <div className="sticky bottom-3 sm:bottom-4 z-30 p-3 sm:p-4 rounded-2xl glass-panel border border-slate-700 shadow-2xl flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+          <div className="flex items-center justify-between sm:justify-start gap-3">
             <span className="text-xs text-slate-300">
               {questions.length} {questions.length === 1 ? 'pregunta' : 'preguntas'} • {totalPoints} pts
             </span>
           </div>
 
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2 sm:gap-3 w-full sm:w-auto">
             <button
               type="button"
               onClick={() => navigate('/teacher')}
-              className="px-4 py-2 text-xs font-semibold rounded-xl text-slate-400 hover:text-white hover:bg-slate-800 transition"
+              className="flex-1 sm:flex-initial px-3 sm:px-4 py-2 text-xs font-semibold rounded-xl text-slate-400 hover:text-white hover:bg-slate-800 border border-slate-800 transition text-center"
             >
               Cancelar
             </button>
@@ -630,10 +630,10 @@ export const ExamEditor: React.FC = () => {
             <button
               type="submit"
               disabled={saving}
-              className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-gradient-to-r from-indigo-600 to-indigo-500 hover:from-indigo-500 hover:to-indigo-400 text-white font-semibold text-xs shadow-lg shadow-indigo-600/30 transition disabled:opacity-50"
+              className="flex-1 sm:flex-initial inline-flex items-center justify-center gap-2 px-4 sm:px-5 py-2 sm:py-2.5 rounded-xl bg-gradient-to-r from-indigo-600 to-indigo-500 hover:from-indigo-500 hover:to-indigo-400 text-white font-semibold text-xs shadow-lg shadow-indigo-600/30 transition disabled:opacity-50"
             >
               <Save className="w-4 h-4" />
-              <span>{saving ? 'Guardando evaluación...' : 'Guardar Evaluación'}</span>
+              <span>{saving ? 'Guardando...' : 'Guardar Evaluación'}</span>
             </button>
           </div>
         </div>
