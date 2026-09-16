@@ -38,6 +38,8 @@ export const TeacherAuth: React.FC = () => {
         setLocalError('Este correo electrónico ya está registrado.');
       } else if (msg.includes('auth/weak-password')) {
         setLocalError('La contraseña debe tener al menos 6 caracteres.');
+      } else if (msg.includes('auth/operation-not-allowed')) {
+        setLocalError('El método de correo y contraseña aún no ha sido habilitado en Firebase Console (Authentication > Sign-in method).');
       } else {
         setLocalError(msg);
       }
