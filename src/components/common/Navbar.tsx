@@ -34,7 +34,7 @@ export const Navbar: React.FC = () => {
         <div className="flex items-center gap-3">
           {/* Connection Status Badge */}
           <div 
-            title={isFirebaseActive ? "Conectado a Firebase Realtime Database" : "Modo Local / Demo Activo"}
+            title={isFirebaseActive ? "Conectado a Google Cloud Firestore" : "Modo Local / Demo Activo"}
             className={`hidden sm:flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium border ${
               isFirebaseActive 
                 ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-400' 
