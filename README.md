@@ -32,7 +32,8 @@ Operating on a **100% serverless architecture** backed by **Google Cloud Firesto
 
 ### 👨‍🏫 Teacher Studio
 - **Intuitive Exam Builder**: Craft timed assessments with custom title, instructions, time limit, and maximum allowed violations.
-- **Dynamic Questions**: Single and multiple-choice questions with per-question scoring, option shuffling, and explanations.
+- **Word Document & Text Import (Testportal Format)**: Import dozens of questions in seconds directly by uploading a Microsoft Word (`.docx`) file or pasting text with automatic option and answer key detection.
+- **Dynamic Questions (4 Default Options)**: Single and multiple-choice questions defaulting to 4 options, customizable point scoring, and true/false modes.
 - **PIN & Link Access**: Generates secure alphanumeric PIN access codes for instant student entry.
 - **Live Submission & Audit Monitor**: Real-time dashboard showing student statuses (`in_progress`, `submitted`, `timed_out`, `disqualified`).
 - **Live Anti-Cheat Log Stream**: Review timestamped violation events (loss of focus, tab switching, devtools inspection, copy/paste attempts) per student.
