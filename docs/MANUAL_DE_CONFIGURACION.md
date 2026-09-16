@@ -161,36 +161,30 @@ Al desplegar el proyecto mediante el flujo automatizado de GitHub Actions hacia 
 
 ---
 
-### 4.1 Solución al Error 404 de GitHub Pages (`actions/configure-pages`)
+### 4.1 Solución al Error 404 / 403 de GitHub Pages (`actions/configure-pages`)
 
 #### Síntoma del Error:
 ```text
 Run actions/configure-pages@v5
-Error: Get Pages site failed. Please verify that the repository has Pages enabled and configured to build using GitHub Actions, or consider exploring the `enablement` parameter for this action.
-Error: HttpError: Not Found - https://docs.github.com/rest/pages/pages#get-a-apiname-pages-site
+Warning: Get Pages site failed. Error: Not Found - https://docs.github.com/rest/pages/pages#get-a-apiname-pages-site
+Error: Create Pages site failed. Error: Resource not accessible by integration - https://docs.github.com/rest/pages/pages#create-a-apiname-pages-site
+Error: HttpError: Resource not accessible by integration
 ```
 
 #### Causa Raíz:
-Por defecto, los nuevos repositorios en GitHub no tienen GitHub Pages habilitado o están configurados con la opción antigua *"Deploy from a branch"*, lo que provoca que la API de Pages retorne un código HTTP 404 (*Not Found*).
+1. **GitHub Pages no está activado**: En repositorios nuevos de GitHub, Pages viene desactivado por defecto (o en *"Deploy from a branch"*).
+2. **Limitación de seguridad de GitHub (`GITHUB_TOKEN`)**: La API de GitHub no permite que un runner de Actions cree o active un sitio de Pages por primera vez (`Resource not accessible by integration`) porque requiere privilegios de administrador que el token del workflow no posee por seguridad.
 
-#### Solución Definitiva (2 Pasos):
+#### Solución Definitiva (1 Solo Paso en la Web de GitHub):
+Debes activar GitHub Pages una única vez desde la interfaz de GitHub:
 
-1. **Ajuste en la interfaz de GitHub (Obligatorio)**:
-   - Abre tu repositorio en GitHub.
-   - Ve a la pestaña **Settings** (Configuración) en la barra superior.
-   - En el menú lateral izquierdo, ve a la sección **Code and automation > Pages**.
-   - En el apartado **Build and deployment > Source**, cambia la selección desplegable de *"Deploy from a branch"* a **"GitHub Actions"**.
-   - *(No necesitas guardar manualmente; el cambio se aplica al seleccionarlo)*.
-
-2. **Ajuste en el flujo `.github/workflows/deploy.yml`**:
-   Ya se ha configurado el parámetro `enablement: true` en el paso `actions/configure-pages@v5`:
-   ```yaml
-   - name: Setup Pages
-     uses: actions/configure-pages@v5
-     with:
-       enablement: true
-   ```
-   Esto instruye a la acción a auto-aprovisionar y configurar el sitio de Pages mediante la API de GitHub en caso de no existir previamente.
+1. Abre tu repositorio en GitHub (`https://github.com/Jlebot7/ExamTaker`).
+2. Haz clic en la pestaña **Settings** (Configuración, arriba a la derecha).
+3. En la barra lateral izquierda, desplázate hasta la sección **Code and automation** y haz clic en **Pages**.
+4. En el apartado **Build and deployment**:
+   - En el menú desplegable **Source** (Origen), selecciona **GitHub Actions**.
+5. ¡Listo! Al seleccionar **GitHub Actions**, GitHub habilita el sitio internamente.
+6. Ahora ve a la pestaña **Actions**, entra al workflow fallido y haz clic en **"Re-run all jobs"** (o haz un nuevo `git push`). El paso `actions/configure-pages@v5` detectará el sitio activo y el despliegue se completará exitosamente.
 
 ---
 
