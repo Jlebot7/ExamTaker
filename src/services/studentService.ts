@@ -1,14 +1,12 @@
 import { 
-  ref, 
-  set, 
-  get, 
-  push, 
-  update, 
-  onValue, 
-  off, 
-  serverTimestamp 
-} from 'firebase/database';
-import { database, isFirebaseConfigured } from './firebaseConfig';
+  collection, 
+  doc, 
+  setDoc, 
+  getDoc, 
+  updateDoc, 
+  onSnapshot 
+} from 'firebase/firestore';
+import { db, isFirebaseConfigured } from './firebaseConfig';
 import type { 
   Submission, 
   SubmissionStatus, 
@@ -25,17 +23,8 @@ import {
 
 let serverTimeOffset = 0;
 
-// Initialize server time offset listener
-if (isFirebaseConfigured) {
-  const offsetRef = ref(database, '.info/serverTimeOffset');
-  onValue(offsetRef, snap => {
-    serverTimeOffset = snap.val() || 0;
-  });
-}
-
 /**
- * Returns current synchronized server timestamp in milliseconds.
- * Prevents clients from tampering with their local system clock.
+ * Returns current estimated server timestamp in milliseconds.
  */
 export const getEstimatedServerTime = (): number => {
   return Date.now() + serverTimeOffset;
@@ -43,7 +32,7 @@ export const getEstimatedServerTime = (): number => {
 
 export const studentService = {
   /**
-   * Initializes or returns existing student submission session.
+   * Initializes or returns existing student submission session in Cloud Firestore.
    */
   async startOrGetSubmission(
     examId: string,
@@ -52,18 +41,23 @@ export const studentService = {
     studentCode: string
   ): Promise<Submission> {
     if (isFirebaseConfigured) {
-      const subRef = ref(database, `submissions/${examId}/${studentUid}`);
-      const snap = await get(subRef);
+      const subRef = doc(db, 'exams', examId, 'submissions', studentUid);
+      const snap = await getDoc(subRef);
 
       if (snap.exists()) {
-        return snap.val() as Submission;
+        const data = snap.data() as Submission;
+        if (data.startedAt) {
+          // Adjust client-server skew if available
+          serverTimeOffset = 0;
+        }
+        return data;
       }
 
       const initialSubmission: Submission = {
         studentUid,
         studentName,
         studentCode,
-        startedAt: getEstimatedServerTime(),
+        startedAt: Date.now(),
         submittedAt: null,
         status: 'in_progress',
         answers: {},
@@ -72,11 +66,7 @@ export const studentService = {
         maxScore: null,
       };
 
-      await set(subRef, {
-        ...initialSubmission,
-        startedAt: serverTimestamp(),
-      });
-
+      await setDoc(subRef, initialSubmission);
       return initialSubmission;
     } else {
       const subs = getMockSubmissions(examId);
@@ -103,7 +93,7 @@ export const studentService = {
   },
 
   /**
-   * Saves or updates a single question answer in real-time.
+   * Saves or updates a single question answer in real-time in Cloud Firestore.
    */
   async saveAnswer(
     examId: string,
@@ -112,9 +102,15 @@ export const studentService = {
     selectedOption: string | string[]
   ): Promise<void> {
     if (isFirebaseConfigured) {
-      await set(
-        ref(database, `submissions/${examId}/${studentUid}/answers/${questionId}`),
-        selectedOption
+      const subRef = doc(db, 'exams', examId, 'submissions', studentUid);
+      await setDoc(
+        subRef,
+        {
+          answers: {
+            [questionId]: selectedOption,
+          },
+        },
+        { merge: true }
       );
     } else {
       const subs = getMockSubmissions(examId);
@@ -140,12 +136,12 @@ export const studentService = {
     const timestamp = getEstimatedServerTime();
 
     if (isFirebaseConfigured) {
-      const logsRef = ref(database, `logs/${examId}/${studentUid}`);
-      const newLogRef = push(logsRef);
-      const logId = newLogRef.key!;
+      const logsCol = collection(db, 'exams', examId, 'submissions', studentUid, 'logs');
+      const logDoc = doc(logsCol);
+      const subRef = doc(db, 'exams', examId, 'submissions', studentUid);
 
       const logData: IntegrityLog = {
-        id: logId,
+        id: logDoc.id,
         timestamp,
         eventType,
         details,
@@ -153,11 +149,8 @@ export const studentService = {
       };
 
       await Promise.all([
-        set(newLogRef, {
-          ...logData,
-          timestamp: serverTimestamp(),
-        }),
-        update(ref(database, `submissions/${examId}/${studentUid}`), {
+        setDoc(logDoc, logData),
+        updateDoc(subRef, {
           violationCount: nextCount,
         }),
       ]);
@@ -193,17 +186,15 @@ export const studentService = {
   ): Promise<Submission> {
     const timestamp = getEstimatedServerTime();
 
-    // Calculate score if key is provided
     let finalScore: number | null = null;
     let maxScore: number | null = null;
-
     let currentSubmission: Submission;
 
     if (isFirebaseConfigured) {
-      const subRef = ref(database, `submissions/${examId}/${studentUid}`);
-      const snap = await get(subRef);
+      const subRef = doc(db, 'exams', examId, 'submissions', studentUid);
+      const snap = await getDoc(subRef);
       if (!snap.exists()) throw new Error('Envío no encontrado');
-      currentSubmission = snap.val() as Submission;
+      currentSubmission = snap.data() as Submission;
 
       if (examKey) {
         let earned = 0;
@@ -232,7 +223,7 @@ export const studentService = {
         maxScore,
       };
 
-      await update(subRef, updates);
+      await updateDoc(subRef, updates);
       return { ...currentSubmission, ...updates };
     } else {
       const subs = getMockSubmissions(examId);
@@ -269,18 +260,22 @@ export const studentService = {
   },
 
   /**
-   * Realtime subscription to submissions of an exam (Teacher view).
+   * Realtime subscription to submissions of an exam (Teacher view) using Cloud Firestore.
    */
   subscribeToSubmissions(
     examId: string,
     callback: (submissions: Record<string, Submission>) => void
   ): () => void {
     if (isFirebaseConfigured) {
-      const subsRef = ref(database, `submissions/${examId}`);
-      onValue(subsRef, snap => {
-        callback(snap.exists() ? snap.val() : {});
+      const subsRef = collection(db, 'exams', examId, 'submissions');
+      const unsubscribe = onSnapshot(subsRef, snap => {
+        const subsMap: Record<string, Submission> = {};
+        snap.forEach(docSnap => {
+          subsMap[docSnap.id] = docSnap.data() as Submission;
+        });
+        callback(subsMap);
       });
-      return () => off(subsRef);
+      return unsubscribe;
     } else {
       callback(getMockSubmissions(examId));
       const interval = setInterval(() => {
@@ -291,7 +286,7 @@ export const studentService = {
   },
 
   /**
-   * Realtime subscription to student audit logs (Teacher view).
+   * Realtime subscription to student audit logs (Teacher view) using Cloud Firestore.
    */
   subscribeToStudentLogs(
     examId: string,
@@ -299,19 +294,15 @@ export const studentService = {
     callback: (logs: IntegrityLog[]) => void
   ): () => void {
     if (isFirebaseConfigured) {
-      const logsRef = ref(database, `logs/${examId}/${studentUid}`);
-      onValue(logsRef, snap => {
-        if (!snap.exists()) {
-          callback([]);
-          return;
-        }
+      const logsRef = collection(db, 'exams', examId, 'submissions', studentUid, 'logs');
+      const unsubscribe = onSnapshot(logsRef, snap => {
         const list: IntegrityLog[] = [];
         snap.forEach(child => {
-          list.push({ id: child.key!, ...child.val() });
+          list.push({ id: child.id, ...(child.data() as Omit<IntegrityLog, 'id'>) });
         });
         callback(list.sort((a, b) => a.timestamp - b.timestamp));
       });
-      return () => off(logsRef);
+      return unsubscribe;
     } else {
       callback(getMockLogs(examId, studentUid));
       const interval = setInterval(() => {
