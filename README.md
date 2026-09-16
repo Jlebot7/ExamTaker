@@ -8,7 +8,7 @@
 [![TypeScript](https://img.shields.io/badge/TypeScript-6.0-blue?logo=typescript&logoColor=white)](https://www.typescriptlang.org/)
 [![Vite](https://img.shields.io/badge/Vite-8.3-646CFF?logo=vite&logoColor=white)](https://vitejs.dev/)
 [![Tailwind CSS](https://img.shields.io/badge/Tailwind_CSS-v4.3-38B2AC?logo=tailwind-css&logoColor=white)](https://tailwindcss.com/)
-[![Firebase](https://img.shields.io/badge/Firebase-RTDB_%26_Auth-FFCA28?logo=firebase&logoColor=black)](https://firebase.google.com/)
+[![Firebase](https://img.shields.io/badge/Firebase-Firestore_%26_Auth-FFCA28?logo=firebase&logoColor=black)](https://firebase.google.com/)
 [![CI/CD](https://img.shields.io/badge/GitHub_Actions-Pages_Deploy-2088FF?logo=github-actions&logoColor=white)](https://github.com/)
 [![License](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
 
@@ -24,7 +24,7 @@
 
 **ExamTaker** is a modern, high-performance web platform designed for academic institutions, educators, and certification bodies that need a secure, hassle-free evaluation environment. 
 
-Operating on a **100% serverless architecture** backed by **Firebase Realtime Database** and **Firebase Authentication**, ExamTaker guarantees real-time synchronization, automatic student attempt autosaving, and active supervision without requiring expensive backend server management.
+Operating on a **100% serverless architecture** backed by **Google Cloud Firestore** and **Firebase Authentication**, ExamTaker guarantees real-time synchronization, automatic student attempt autosaving, and active supervision without requiring expensive backend server management.
 
 ---
 
@@ -68,11 +68,11 @@ flowchart TD
         T_Audit["Live Audit Dashboard & Auto-Grading"]
     end
 
-    subgraph Firebase["Firebase Realtime Database"]
+    subgraph Firebase["Google Cloud Firestore"]
         DB_Public["/exams/{examId}<br/>(Questions, Options, Time, Rules)<br/>🔓 Read: Authenticated Students & Teacher"]
         DB_Keys["/exam_keys/{examId}<br/>(Correct Answers Only)<br/>🔒 Read/Write: Teacher Creator ONLY"]
-        DB_Submissions["/submissions/{examId}/{studentUid}<br/>(Student Answers & Timestamps)<br/>👥 Read/Write: Student & Teacher"]
-        DB_Logs["/logs/{examId}/{studentUid}<br/>(Anti-Cheat Violation Audit Stream)<br/>🛡️ Push: Student | Read: Teacher"]
+        DB_Submissions["/exams/{examId}/submissions/{studentUid}<br/>(Student Answers & Timestamps)<br/>👥 Read/Write: Student & Teacher"]
+        DB_Logs["/logs/{logId}<br/>(Anti-Cheat Violation Audit Stream)<br/>🛡️ Write: Student | Read: Teacher"]
     end
 
     subgraph Student["Student Portal"]
@@ -91,9 +91,9 @@ flowchart TD
 ```
 
 ### Security Highlights:
-1. **Separation of Keys**: Correct answers are stored strictly under `/exam_keys/{examId}`, where Realtime Database rules deny read access to everyone except the authenticated teacher who created the exam.
+1. **Separation of Keys**: Correct answers are stored strictly under `/exam_keys/{examId}`, where Cloud Firestore security rules deny read access to everyone except the authenticated teacher who created the exam.
 2. **Immutable Finalization**: Once a submission's status changes from `in_progress` to `submitted`, `timed_out`, or `disqualified`, write rules lock answers from further client modification.
-3. **Server-Offset Clock**: Exam duration relies on Firebase's `.info/serverTimeOffset` to eliminate cheating by adjusting local machine clocks.
+3. **Protected Subcollections**: Student attempts and audit logs reside within scoped subcollections protected by granular document-level access rules.
 
 ---
 
@@ -108,7 +108,7 @@ flowchart TD
 | **Routing** | [React Router 7](https://reactrouter.com/) | HashRouter for GitHub Pages SPA compatibility |
 | **Icons** | [Lucide React](https://lucide.dev/) | Accessible, modern iconography |
 | **Effects** | [Canvas-Confetti](https://www.npmjs.com/package/canvas-confetti) | Visual celebration on successful submission |
-| **Database & Auth** | [Firebase 12](https://firebase.google.com/) | Realtime Database and Firebase Authentication |
+| **Database & Auth** | [Firebase 12](https://firebase.google.com/) | Cloud Firestore and Firebase Authentication |
 | **Linter** | [Oxlint](https://oxc.rs/) | Rust-powered high-speed JavaScript/TypeScript linter |
 | **CI/CD** | [GitHub Actions](https://github.com/features/actions) | Automated build and deployment to GitHub Pages |
 
@@ -154,8 +154,9 @@ ExamTaker/
 │   ├── App.tsx                 # Route declarations & role-based guards
 │   ├── index.css               # Global CSS & Tailwind imports
 │   └── main.tsx                # Application bootstrap entrypoint
-├── database.rules.json         # Firebase Realtime Database security rules
-├── firebase.json               # Firebase CLI hosting and database setup
+├── firestore.rules             # Cloud Firestore security rules
+├── database.rules.json         # Firebase Realtime Database rules (legacy)
+├── firebase.json               # Firebase CLI hosting and firestore setup
 ├── vite.config.ts              # Vite bundler configuration
 └── package.json                # Project dependencies and npm scripts
 ```
@@ -191,7 +192,6 @@ Fill in your Firebase project credentials (optional for initial preview thanks t
 ```env
 VITE_FIREBASE_API_KEY=AIzaSyYourApiKeyHere
 VITE_FIREBASE_AUTH_DOMAIN=your-project.firebaseapp.com
-VITE_FIREBASE_DATABASE_URL=https://your-project-default-rtdb.firebaseio.com
 VITE_FIREBASE_PROJECT_ID=your-project-id
 VITE_FIREBASE_STORAGE_BUCKET=your-project.firebasestorage.app
 VITE_FIREBASE_MESSAGING_SENDER_ID=123456789012
@@ -210,7 +210,7 @@ Open your browser and navigate to `http://localhost:5173`.
 
 ## 🛡️ Firebase Security Rules Setup
 
-To deploy the production security rules to your Firebase Realtime Database:
+To deploy the production security rules to your Cloud Firestore:
 
 1. Install the Firebase CLI:
    ```bash
@@ -220,9 +220,9 @@ To deploy the production security rules to your Firebase Realtime Database:
    ```bash
    firebase login
    ```
-3. Deploy database rules from `database.rules.json`:
+3. Deploy Firestore security rules from `firestore.rules`:
    ```bash
-   firebase deploy --only database
+   firebase deploy --only firestore:rules
    ```
 
 ---
