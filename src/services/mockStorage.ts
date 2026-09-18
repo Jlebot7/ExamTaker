@@ -173,3 +173,42 @@ export const addMockLog = (examId: string, studentUid: string, log: IntegrityLog
   all[key].push(log);
   localStorage.setItem(STORAGE_KEYS.LOGS, JSON.stringify(all));
 };
+
+export const deleteMockSubmission = (examId: string, studentUid: string) => {
+  initMockStorage();
+  const allSubs = JSON.parse(localStorage.getItem(STORAGE_KEYS.SUBMISSIONS) || '{}');
+  if (allSubs[examId] && allSubs[examId][studentUid]) {
+    delete allSubs[examId][studentUid];
+    localStorage.setItem(STORAGE_KEYS.SUBMISSIONS, JSON.stringify(allSubs));
+  }
+
+  const allLogs = JSON.parse(localStorage.getItem(STORAGE_KEYS.LOGS) || '{}');
+  const logKey = `${examId}_${studentUid}`;
+  if (allLogs[logKey]) {
+    delete allLogs[logKey];
+    localStorage.setItem(STORAGE_KEYS.LOGS, JSON.stringify(allLogs));
+  }
+};
+
+export const resetAllMockSubmissions = (examId: string) => {
+  initMockStorage();
+  const allSubs = JSON.parse(localStorage.getItem(STORAGE_KEYS.SUBMISSIONS) || '{}');
+  if (allSubs[examId]) {
+    delete allSubs[examId];
+    localStorage.setItem(STORAGE_KEYS.SUBMISSIONS, JSON.stringify(allSubs));
+  }
+
+  const allLogs = JSON.parse(localStorage.getItem(STORAGE_KEYS.LOGS) || '{}');
+  const prefix = `${examId}_`;
+  let changed = false;
+  Object.keys(allLogs).forEach(k => {
+    if (k.startsWith(prefix)) {
+      delete allLogs[k];
+      changed = true;
+    }
+  });
+  if (changed) {
+    localStorage.setItem(STORAGE_KEYS.LOGS, JSON.stringify(allLogs));
+  }
+};
+
