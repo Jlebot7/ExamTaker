@@ -13,10 +13,13 @@ import {
   BarChart2, 
   Eye, 
   Sparkles, 
-  AlertCircle
+  AlertCircle,
+  RotateCcw,
+  CheckCircle2
 } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import { examService } from '../services/examService';
+import { studentService } from '../services/studentService';
 import type { Exam } from '../types';
 
 export const TeacherDashboard: React.FC = () => {
@@ -26,7 +29,10 @@ export const TeacherDashboard: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [copiedId, setCopiedId] = useState<string | null>(null);
   const [deleteId, setDeleteId] = useState<string | null>(null);
+  const [resetExamId, setResetExamId] = useState<string | null>(null);
+  const [isResetting, setIsResetting] = useState(false);
   const [actionError, setActionError] = useState<string | null>(null);
+  const [actionSuccess, setActionSuccess] = useState<string | null>(null);
 
   const loadExams = async () => {
     if (!user) return;
@@ -76,6 +82,23 @@ export const TeacherDashboard: React.FC = () => {
       setDeleteId(null);
     } catch (err) {
       setActionError('Error al eliminar la evaluación');
+    }
+  };
+
+  const confirmReset = async () => {
+    if (!resetExamId) return;
+    setIsResetting(true);
+    setActionError(null);
+    try {
+      await studentService.resetAllSubmissions(resetExamId);
+      setActionSuccess(`La evaluación "${resetExamId}" fue reiniciada exitosamente. Los alumnos registrados podrán ingresar nuevamente desde cero.`);
+      setResetExamId(null);
+      setTimeout(() => setActionSuccess(null), 6000);
+    } catch (err) {
+      console.error('Error al reiniciar evaluación:', err);
+      setActionError('Error al reiniciar las respuestas y registros de la evaluación');
+    } finally {
+      setIsResetting(false);
     }
   };
 
@@ -143,12 +166,23 @@ export const TeacherDashboard: React.FC = () => {
 
       {/* Error Banner */}
       {actionError && (
-        <div className="mb-6 p-3.5 rounded-xl bg-rose-500/10 border border-rose-500/30 text-rose-400 text-xs flex items-center justify-between">
+        <div className="mb-6 p-3.5 rounded-xl bg-rose-500/10 border border-rose-500/30 text-rose-400 text-xs flex items-center justify-between animate-fadeIn">
           <div className="flex items-center gap-2">
             <AlertCircle className="w-4 h-4 shrink-0" />
             <span>{actionError}</span>
           </div>
           <button onClick={() => setActionError(null)} className="text-xs underline">Descartar</button>
+        </div>
+      )}
+
+      {/* Success Banner */}
+      {actionSuccess && (
+        <div className="mb-6 p-3.5 rounded-xl bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 text-xs flex items-center justify-between animate-fadeIn">
+          <div className="flex items-center gap-2">
+            <CheckCircle2 className="w-4 h-4 shrink-0" />
+            <span>{actionSuccess}</span>
+          </div>
+          <button onClick={() => setActionSuccess(null)} className="text-xs underline">Cerrar</button>
         </div>
       )}
 
@@ -265,6 +299,14 @@ export const TeacherDashboard: React.FC = () => {
                   )}
                 </button>
 
+                <button
+                  onClick={() => setResetExamId(exam.id)}
+                  title="Reiniciar Examen (Permitir reingreso de alumnos)"
+                  className="p-2 rounded-xl bg-slate-800 hover:bg-amber-900/40 text-slate-400 hover:text-amber-400 transition"
+                >
+                  <RotateCcw className="w-3.5 h-3.5" />
+                </button>
+
                 <Link
                   to={`/teacher/exam/${exam.id}/edit`}
                   title="Editar Examen"
@@ -283,6 +325,54 @@ export const TeacherDashboard: React.FC = () => {
               </div>
             </div>
           ))}
+        </div>
+      )}
+
+      {/* Reset Confirmation Modal */}
+      {resetExamId && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm">
+          <div className="glass-card max-w-md w-full p-6 rounded-2xl border border-slate-800 animate-fadeIn shadow-2xl">
+            <div className="flex items-center gap-3 mb-3 text-amber-400">
+              <div className="w-10 h-10 rounded-xl bg-amber-500/20 border border-amber-500/30 flex items-center justify-center shrink-0">
+                <RotateCcw className="w-5 h-5 text-amber-400" />
+              </div>
+              <div>
+                <h3 className="text-base font-bold text-white">¿Reiniciar evaluación?</h3>
+                <span className="text-xs font-mono text-amber-400 font-bold">PIN: {resetExamId}</span>
+              </div>
+            </div>
+            <p className="text-xs text-slate-300 leading-relaxed mb-3">
+              Esta acción <strong>eliminará todas las respuestas, notas e infracciones acumuladas</strong> de todos los estudiantes que hayan rendido este examen.
+            </p>
+            <p className="text-xs text-slate-400 mb-6 bg-slate-900/80 p-3 rounded-xl border border-slate-800">
+              💡 La estructura del examen, las preguntas y las claves secretas <strong>se mantendrán intactas</strong>. Los mismos estudiantes podrán volver a ingresar con su código o PIN y realizar la evaluación desde cero.
+            </p>
+            <div className="flex items-center justify-end gap-3">
+              <button
+                type="button"
+                disabled={isResetting}
+                onClick={() => setResetExamId(null)}
+                className="px-4 py-2 text-xs font-semibold rounded-xl text-slate-300 hover:bg-slate-800 transition disabled:opacity-50"
+              >
+                Cancelar
+              </button>
+              <button
+                type="button"
+                disabled={isResetting}
+                onClick={confirmReset}
+                className="px-4 py-2 text-xs font-semibold rounded-xl bg-amber-600 hover:bg-amber-500 text-white transition shadow-md shadow-amber-600/20 flex items-center gap-2 disabled:opacity-50"
+              >
+                {isResetting ? (
+                  <span>Reiniciando...</span>
+                ) : (
+                  <>
+                    <RotateCcw className="w-3.5 h-3.5" />
+                    <span>Sí, Reiniciar Evaluación</span>
+                  </>
+                )}
+              </button>
+            </div>
+          </div>
         </div>
       )}
 
