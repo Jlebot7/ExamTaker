@@ -9,7 +9,9 @@ import {
   FileSpreadsheet, 
   Eye, 
   RefreshCw, 
-  Search
+  Search,
+  RotateCcw,
+  AlertCircle
 } from 'lucide-react';
 import { examService } from '../services/examService';
 import { studentService } from '../services/studentService';
@@ -30,6 +32,13 @@ export const ExamAudit: React.FC = () => {
   const [selectedStudent, setSelectedStudent] = useState<Submission | null>(null);
   const [studentLogs, setStudentLogs] = useState<IntegrityLog[]>([]);
   const [loadingLogs, setLoadingLogs] = useState(false);
+
+  // Reset Modals & Notifications
+  const [showResetAllModal, setShowResetAllModal] = useState(false);
+  const [studentToReset, setStudentToReset] = useState<Submission | null>(null);
+  const [isResetting, setIsResetting] = useState(false);
+  const [actionSuccess, setActionSuccess] = useState<string | null>(null);
+  const [actionError, setActionError] = useState<string | null>(null);
 
   useEffect(() => {
     if (!examId) return;
@@ -128,6 +137,52 @@ export const ExamAudit: React.FC = () => {
     document.body.removeChild(link);
   };
 
+  // Reset entire exam (all student submissions & logs)
+  const confirmResetAll = async () => {
+    if (!examId) return;
+    setIsResetting(true);
+    setActionError(null);
+    try {
+      await studentService.resetAllSubmissions(examId);
+      setSubmissions({});
+      setShowResetAllModal(false);
+      setSelectedStudent(null);
+      setActionSuccess('La evaluación ha sido reiniciada por completo. Todos los estudiantes pueden volver a acceder.');
+      setTimeout(() => setActionSuccess(null), 6000);
+    } catch (err) {
+      console.error('Error al reiniciar examen completo:', err);
+      setActionError('Error al reiniciar los intentos de la evaluación');
+    } finally {
+      setIsResetting(false);
+    }
+  };
+
+  // Reset a single student submission
+  const confirmResetStudent = async () => {
+    if (!examId || !studentToReset) return;
+    setIsResetting(true);
+    setActionError(null);
+    try {
+      await studentService.resetStudentSubmission(examId, studentToReset.studentUid);
+      setSubmissions(prev => {
+        const next = { ...prev };
+        delete next[studentToReset.studentUid];
+        return next;
+      });
+      setActionSuccess(`El intento de ${studentToReset.studentName} (${studentToReset.studentCode}) fue reiniciado exitosamente. Ya puede ingresar nuevamente.`);
+      if (selectedStudent?.studentUid === studentToReset.studentUid) {
+        setSelectedStudent(null);
+      }
+      setStudentToReset(null);
+      setTimeout(() => setActionSuccess(null), 6000);
+    } catch (err) {
+      console.error('Error al reiniciar intento de estudiante:', err);
+      setActionError('Error al reiniciar el intento del estudiante');
+    } finally {
+      setIsResetting(false);
+    }
+  };
+
   const getStatusBadge = (status: Submission['status']) => {
     switch (status) {
       case 'in_progress':
@@ -214,7 +269,7 @@ export const ExamAudit: React.FC = () => {
 
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-      {/* Navigation */}
+      {/* Navigation & Actions */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-6">
         <Link
           to="/teacher"
@@ -224,14 +279,46 @@ export const ExamAudit: React.FC = () => {
           <span>Volver al Dashboard</span>
         </Link>
 
-        <button
-          onClick={handleExportCSV}
-          className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-3.5 py-2 rounded-xl bg-slate-900 border border-slate-700 hover:border-slate-600 text-xs font-semibold text-slate-200 hover:text-white transition"
-        >
-          <FileSpreadsheet className="w-3.5 h-3.5 text-emerald-400" />
-          <span>Exportar Calificaciones (CSV)</span>
-        </button>
+        <div className="flex flex-wrap items-center gap-2.5">
+          <button
+            onClick={() => setShowResetAllModal(true)}
+            className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-3.5 py-2 rounded-xl bg-amber-500/10 border border-amber-500/30 hover:bg-amber-500/20 text-xs font-semibold text-amber-300 hover:text-amber-200 transition"
+          >
+            <RotateCcw className="w-3.5 h-3.5 text-amber-400" />
+            <span>Reiniciar Examen Completo</span>
+          </button>
+
+          <button
+            onClick={handleExportCSV}
+            className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-3.5 py-2 rounded-xl bg-slate-900 border border-slate-700 hover:border-slate-600 text-xs font-semibold text-slate-200 hover:text-white transition"
+          >
+            <FileSpreadsheet className="w-3.5 h-3.5 text-emerald-400" />
+            <span>Exportar Calificaciones (CSV)</span>
+          </button>
+        </div>
       </div>
+
+      {/* Error Notification */}
+      {actionError && (
+        <div className="mb-6 p-3.5 rounded-xl bg-rose-500/10 border border-rose-500/30 text-rose-400 text-xs flex items-center justify-between animate-fadeIn">
+          <div className="flex items-center gap-2">
+            <AlertCircle className="w-4 h-4 shrink-0" />
+            <span>{actionError}</span>
+          </div>
+          <button onClick={() => setActionError(null)} className="text-xs underline">Descartar</button>
+        </div>
+      )}
+
+      {/* Success Notification */}
+      {actionSuccess && (
+        <div className="mb-6 p-3.5 rounded-xl bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 text-xs flex items-center justify-between animate-fadeIn">
+          <div className="flex items-center gap-2">
+            <CheckCircle2 className="w-4 h-4 shrink-0" />
+            <span>{actionSuccess}</span>
+          </div>
+          <button onClick={() => setActionSuccess(null)} className="text-xs underline">Cerrar</button>
+        </div>
+      )}
 
       {/* Header Info */}
       <div className="glass-card p-5 sm:p-6 rounded-2xl border border-slate-800 mb-6">
@@ -354,13 +441,23 @@ export const ExamAudit: React.FC = () => {
                   <span className="text-[10px] text-slate-500 font-mono">
                     Inicio: {new Date(sub.startedAt).toLocaleTimeString()}
                   </span>
-                  <button
-                    onClick={() => setSelectedStudent(sub)}
-                    className="inline-flex items-center gap-1.5 px-3 py-1 rounded-lg bg-indigo-600/20 hover:bg-indigo-600/30 text-indigo-300 border border-indigo-500/30 text-xs font-medium transition"
-                  >
-                    <Eye className="w-3.5 h-3.5" />
-                    <span>Auditoría</span>
-                  </button>
+                  <div className="flex items-center gap-2">
+                    <button
+                      onClick={() => setSelectedStudent(sub)}
+                      className="inline-flex items-center gap-1.5 px-3 py-1 rounded-lg bg-indigo-600/20 hover:bg-indigo-600/30 text-indigo-300 border border-indigo-500/30 text-xs font-medium transition"
+                    >
+                      <Eye className="w-3.5 h-3.5" />
+                      <span>Auditoría</span>
+                    </button>
+                    <button
+                      onClick={() => setStudentToReset(sub)}
+                      title="Reiniciar intento para permitir reingreso"
+                      className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-amber-500/10 hover:bg-amber-500/20 text-amber-300 border border-amber-500/30 text-xs font-medium transition"
+                    >
+                      <RotateCcw className="w-3.5 h-3.5" />
+                      <span>Reiniciar</span>
+                    </button>
+                  </div>
                 </div>
               </div>
             ))
@@ -378,7 +475,7 @@ export const ExamAudit: React.FC = () => {
                 <th className="px-6 py-3.5">Calificación</th>
                 <th className="px-6 py-3.5">Infracciones</th>
                 <th className="px-6 py-3.5">Hora Inicio</th>
-                <th className="px-6 py-3.5 text-right">Auditoría</th>
+                <th className="px-6 py-3.5 text-right">Acciones</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-800/60">
@@ -416,13 +513,23 @@ export const ExamAudit: React.FC = () => {
                       {new Date(sub.startedAt).toLocaleTimeString()}
                     </td>
                     <td className="px-6 py-4 text-right">
-                      <button
-                        onClick={() => setSelectedStudent(sub)}
-                        className="inline-flex items-center gap-1 px-3 py-1 rounded-lg bg-indigo-600/20 hover:bg-indigo-600/30 text-indigo-300 border border-indigo-500/30 text-xs font-medium transition"
-                      >
-                        <Eye className="w-3.5 h-3.5" />
-                        <span>Ver Logs</span>
-                      </button>
+                      <div className="inline-flex items-center justify-end gap-2">
+                        <button
+                          onClick={() => setSelectedStudent(sub)}
+                          className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-indigo-600/20 hover:bg-indigo-600/30 text-indigo-300 border border-indigo-500/30 text-xs font-medium transition"
+                        >
+                          <Eye className="w-3.5 h-3.5" />
+                          <span>Ver Logs</span>
+                        </button>
+                        <button
+                          onClick={() => setStudentToReset(sub)}
+                          title="Reiniciar intento para permitir reingreso"
+                          className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-amber-500/10 hover:bg-amber-500/20 text-amber-300 border border-amber-500/30 text-xs font-medium transition"
+                        >
+                          <RotateCcw className="w-3.5 h-3.5" />
+                          <span>Reiniciar</span>
+                        </button>
+                      </div>
                     </td>
                   </tr>
                 ))
@@ -509,12 +616,118 @@ export const ExamAudit: React.FC = () => {
             </div>
 
             {/* Modal Footer */}
-            <div className="p-4 bg-slate-900/60 border-t border-slate-800 flex justify-end">
+            <div className="p-4 bg-slate-900/60 border-t border-slate-800 flex items-center justify-between gap-3">
               <button
+                type="button"
+                onClick={() => setStudentToReset(selectedStudent)}
+                className="inline-flex items-center gap-1.5 px-3 py-2 text-xs font-semibold rounded-xl bg-amber-500/15 hover:bg-amber-500/25 text-amber-300 border border-amber-500/30 transition shadow-sm"
+              >
+                <RotateCcw className="w-3.5 h-3.5" />
+                <span>Reiniciar Intento del Alumno</span>
+              </button>
+
+              <button
+                type="button"
                 onClick={() => setSelectedStudent(null)}
                 className="px-4 py-2 text-xs font-semibold rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 transition"
               >
                 Cerrar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Reset All Confirmation Modal */}
+      {showResetAllModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/75 backdrop-blur-sm animate-fadeIn">
+          <div className="glass-card max-w-md w-full p-6 rounded-2xl border border-slate-800 shadow-2xl">
+            <div className="flex items-center gap-3 mb-3 text-amber-400">
+              <div className="w-10 h-10 rounded-xl bg-amber-500/20 border border-amber-500/30 flex items-center justify-center shrink-0">
+                <RotateCcw className="w-5 h-5 text-amber-400" />
+              </div>
+              <div>
+                <h3 className="text-base font-bold text-white">¿Reiniciar Examen Completo?</h3>
+                <span className="text-xs font-mono text-amber-400 font-bold">PIN: {exam?.id}</span>
+              </div>
+            </div>
+            <p className="text-xs text-slate-300 leading-relaxed mb-3">
+              Esta acción eliminará todas las entregas, respuestas, calificaciones e historial de infracciones de <strong>{totalStudents} estudiantes registrados</strong>.
+            </p>
+            <p className="text-xs text-slate-400 mb-6 bg-slate-900/80 p-3 rounded-xl border border-slate-800">
+              💡 El examen permanecerá activo y las preguntas no se modificarán. <strong>Todos los alumnos podrán reingresar y rendir la prueba nuevamente</strong> desde cero.
+            </p>
+            <div className="flex items-center justify-end gap-3">
+              <button
+                type="button"
+                disabled={isResetting}
+                onClick={() => setShowResetAllModal(false)}
+                className="px-4 py-2 text-xs font-semibold rounded-xl text-slate-300 hover:bg-slate-800 transition disabled:opacity-50"
+              >
+                Cancelar
+              </button>
+              <button
+                type="button"
+                disabled={isResetting}
+                onClick={confirmResetAll}
+                className="px-4 py-2 text-xs font-semibold rounded-xl bg-amber-600 hover:bg-amber-500 text-white transition shadow-md shadow-amber-600/20 flex items-center gap-2 disabled:opacity-50"
+              >
+                {isResetting ? (
+                  <span>Reiniciando...</span>
+                ) : (
+                  <>
+                    <RotateCcw className="w-3.5 h-3.5" />
+                    <span>Sí, Reiniciar Todo</span>
+                  </>
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Reset Single Student Confirmation Modal */}
+      {studentToReset && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/75 backdrop-blur-sm animate-fadeIn">
+          <div className="glass-card max-w-md w-full p-6 rounded-2xl border border-slate-800 shadow-2xl">
+            <div className="flex items-center gap-3 mb-3 text-amber-400">
+              <div className="w-10 h-10 rounded-xl bg-amber-500/20 border border-amber-500/30 flex items-center justify-center shrink-0">
+                <RotateCcw className="w-5 h-5 text-amber-400" />
+              </div>
+              <div>
+                <h3 className="text-base font-bold text-white">¿Reiniciar intento del estudiante?</h3>
+                <span className="text-xs text-slate-300 font-semibold">{studentToReset.studentName} ({studentToReset.studentCode})</span>
+              </div>
+            </div>
+            <p className="text-xs text-slate-300 leading-relaxed mb-3">
+              Se eliminarán las respuestas guardadas, su calificación actual ({studentToReset.finalScore !== null ? `${studentToReset.finalScore} pts` : 'Pendiente'}) y las <strong>{studentToReset.violationCount || 0} infracciones</strong> registradas.
+            </p>
+            <p className="text-xs text-slate-400 mb-6 bg-slate-900/80 p-3 rounded-xl border border-slate-800">
+              💡 El estudiante podrá ingresar nuevamente con su código o matrícula y <strong>comenzar una nueva sesión limpia</strong> con el tiempo completo.
+            </p>
+            <div className="flex items-center justify-end gap-3">
+              <button
+                type="button"
+                disabled={isResetting}
+                onClick={() => setStudentToReset(null)}
+                className="px-4 py-2 text-xs font-semibold rounded-xl text-slate-300 hover:bg-slate-800 transition disabled:opacity-50"
+              >
+                Cancelar
+              </button>
+              <button
+                type="button"
+                disabled={isResetting}
+                onClick={confirmResetStudent}
+                className="px-4 py-2 text-xs font-semibold rounded-xl bg-amber-600 hover:bg-amber-500 text-white transition shadow-md shadow-amber-600/20 flex items-center gap-2 disabled:opacity-50"
+              >
+                {isResetting ? (
+                  <span>Reiniciando...</span>
+                ) : (
+                  <>
+                    <RotateCcw className="w-3.5 h-3.5" />
+                    <span>Sí, Reiniciar Intento</span>
+                  </>
+                )}
               </button>
             </div>
           </div>
