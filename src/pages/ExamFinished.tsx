@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { useParams, Link } from 'react-router-dom';
+import { useParams, Link, useNavigate } from 'react-router-dom';
 import confetti from 'canvas-confetti';
 import { 
   CheckCircle2, 
@@ -9,7 +9,8 @@ import {
   Award,
   ShieldAlert,
   Percent,
-  FileCheck
+  FileCheck,
+  RotateCcw
 } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import { examService } from '../services/examService';
@@ -19,6 +20,7 @@ import type { Exam, Submission } from '../types';
 export const ExamFinished: React.FC = () => {
   const { examId } = useParams<{ examId: string }>();
   const { user } = useAuth();
+  const navigate = useNavigate();
 
   const [exam, setExam] = useState<Exam | null>(null);
   const [submission, setSubmission] = useState<Submission | null>(null);
@@ -32,11 +34,17 @@ export const ExamFinished: React.FC = () => {
       try {
         let [examData, subData] = await Promise.all([
           examService.getExam(examId),
-          studentService.startOrGetSubmission(examId, user.uid, user.displayName || '', user.studentCode || '')
+          studentService.getSubmission(examId, user.uid)
         ]);
 
+        // If the teacher has reset this student's submission or entire exam, redirect to take it
+        if (!subData || subData.status === 'in_progress') {
+          navigate(`/exam/${examId}`, { replace: true });
+          return;
+        }
+
         // If score was not yet computed for a finished exam, trigger grading calculation
-        if (subData && subData.finalScore === null && subData.status !== 'in_progress') {
+        if (subData.finalScore === null) {
           try {
             subData = await studentService.submitExam(examId, user.uid, subData.status);
           } catch (evalErr) {
@@ -68,7 +76,7 @@ export const ExamFinished: React.FC = () => {
     };
 
     loadData();
-  }, [examId, user]);
+  }, [examId, user, navigate]);
 
   if (loading) {
     return (
@@ -237,8 +245,16 @@ export const ExamFinished: React.FC = () => {
             </div>
           </div>
 
-          {/* Return button */}
-          <div className="flex flex-col gap-2">
+          {/* Return & Re-entry buttons */}
+          <div className="flex flex-col gap-2.5">
+            <Link
+              to={`/student?code=${examId}`}
+              className="w-full inline-flex items-center justify-center gap-2 py-3 px-4 rounded-xl bg-slate-900 hover:bg-slate-800 text-slate-200 hover:text-white border border-slate-700/80 text-xs font-semibold transition"
+            >
+              <RotateCcw className="w-4 h-4 text-amber-400" />
+              <span>Volver a ingresar a la evaluación (si fue reiniciada)</span>
+            </Link>
+
             <Link
               to="/"
               className="w-full inline-flex items-center justify-center gap-2 py-3 px-4 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white shadow-lg shadow-indigo-600/25 text-xs font-semibold transition"
