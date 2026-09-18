@@ -187,7 +187,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           uid = cred.user.uid;
         }
       } else {
-        uid = 'student_' + Math.random().toString(36).substring(2, 9);
+        const cleanCode = code.trim().toLowerCase().replace(/[^a-z0-9]/g, '_');
+        uid = `student_${cleanCode || Math.random().toString(36).substring(2, 9)}`;
       }
 
       const studentSession = { uid, name, code, startedAt: Date.now() };
