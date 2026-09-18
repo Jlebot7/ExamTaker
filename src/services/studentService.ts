@@ -3,6 +3,8 @@ import {
   doc, 
   setDoc, 
   getDoc, 
+  getDocs,
+  deleteDoc,
   updateDoc, 
   onSnapshot 
 } from 'firebase/firestore';
@@ -17,6 +19,8 @@ import type {
 import { 
   getMockSubmissions, 
   saveMockSubmission, 
+  deleteMockSubmission,
+  resetAllMockSubmissions,
   getMockLogs, 
   addMockLog,
   getMockExamKey 
@@ -340,4 +344,59 @@ export const studentService = {
       return () => clearInterval(interval);
     }
   },
+
+  /**
+   * Gets student submission without automatically creating one if it doesn't exist.
+   */
+  async getSubmission(examId: string, studentUid: string): Promise<Submission | null> {
+    if (isFirebaseConfigured) {
+      const subRef = doc(db, 'exams', examId, 'submissions', studentUid);
+      const snap = await getDoc(subRef);
+      return snap.exists() ? (snap.data() as Submission) : null;
+    } else {
+      const subs = getMockSubmissions(examId);
+      return subs[studentUid] || null;
+    }
+  },
+
+  /**
+   * Resets a single student submission and its integrity logs, allowing them to take the exam again.
+   */
+  async resetStudentSubmission(examId: string, studentUid: string): Promise<void> {
+    if (isFirebaseConfigured) {
+      // 1. Delete all audit logs
+      const logsCol = collection(db, 'exams', examId, 'submissions', studentUid, 'logs');
+      const logsSnap = await getDocs(logsCol);
+      const logDeletePromises = logsSnap.docs.map(logDoc => deleteDoc(logDoc.ref));
+      await Promise.all(logDeletePromises);
+
+      // 2. Delete the submission document
+      const subRef = doc(db, 'exams', examId, 'submissions', studentUid);
+      await deleteDoc(subRef);
+    } else {
+      deleteMockSubmission(examId, studentUid);
+    }
+  },
+
+  /**
+   * Resets all student submissions and logs for an exam, allowing everyone to take it again.
+   */
+  async resetAllSubmissions(examId: string): Promise<void> {
+    if (isFirebaseConfigured) {
+      const subsCol = collection(db, 'exams', examId, 'submissions');
+      const subsSnap = await getDocs(subsCol);
+
+      const deletePromises = subsSnap.docs.map(async (subDoc) => {
+        const logsCol = collection(db, 'exams', examId, 'submissions', subDoc.id, 'logs');
+        const logsSnap = await getDocs(logsCol);
+        await Promise.all(logsSnap.docs.map(logDoc => deleteDoc(logDoc.ref)));
+        await deleteDoc(subDoc.ref);
+      });
+
+      await Promise.all(deletePromises);
+    } else {
+      resetAllMockSubmissions(examId);
+    }
+  },
 };
+
