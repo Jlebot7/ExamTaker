@@ -34,7 +34,7 @@ export const LandingPage: React.FC = () => {
           {/* Eyebrow Label */}
           <div className="eyebrow-label mb-6 px-3.5 py-1 rounded-md bg-[#003734] border border-white/10 text-[#edfffe] flex items-center gap-2">
             <span className="w-1.5 h-1.5 rounded-full bg-[#cbfffc] animate-pulse"></span>
-            <span>Auros • Arquitectura Abisal de Evaluación Continua</span>
+            <span>Auros TestQ • Arquitectura Abisal de Evaluación Continua</span>
           </div>
 
           {/* Hero Headline (61-96px Matter 500, line-height 1.0, tracking -0.04em) */}
@@ -62,7 +62,7 @@ export const LandingPage: React.FC = () => {
                   type="text"
                   value={quickCode}
                   onChange={e => setQuickCode(e.target.value.toUpperCase())}
-                  placeholder="Ej: DEMO-101"
+                  placeholder="Ej: EVAL-2026"
                   className="w-full bg-[#011d1c] border border-white/15 focus:border-[#cbfffc] rounded-md px-3.5 py-2.5 text-xs font-mono text-white placeholder-[#707777] uppercase outline-none transition"
                 />
                 <button
@@ -267,7 +267,7 @@ export const LandingPage: React.FC = () => {
             ▲
           </div>
           <span className="text-lg font-medium text-white tracking-[-0.03em] uppercase">
-            Auros ExamTaker
+            Auros TestQ
           </span>
           <span className="eyebrow-label text-[10px] text-[#edfffe] mt-1 tracking-[0.15em]">
             Abyssal Terminal with Bioluminescent Data Orbs
@@ -281,7 +281,7 @@ export const LandingPage: React.FC = () => {
           </div>
 
           <p className="mt-10 text-[11px] text-[#707777] font-mono">
-            © 2026 Auros ExamTaker. Sistema de Evaluación Continua.
+            © 2026 Auros TestQ. Sistema de Evaluación Continua.
           </p>
         </div>
       </footer>
