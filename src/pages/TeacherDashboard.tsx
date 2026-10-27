@@ -109,7 +109,7 @@ export const TeacherDashboard: React.FC = () => {
           <div className="flex items-center gap-2 mb-1.5">
             <span className="w-2 h-2 rounded-full bg-[#00827c] animate-pulse"></span>
             <span className="text-[10px] font-mono tracking-[0.14em] uppercase text-[#edfffe]/80 font-medium">
-              // PANEL DE CONTROL DOCENTE
+              AUROS TESTQ // PANEL DE CONTROL DOCENTE
             </span>
           </div>
           <h1 className="text-2xl sm:text-3xl font-medium text-white tracking-tight">
