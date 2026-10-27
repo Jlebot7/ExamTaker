@@ -1,68 +1,196 @@
 @import "tailwindcss";
 
+@theme {
+  /* Auros Palette Tokens */
+  --color-liquid-abyss: #012624;
+  --color-liquid-deep: #011d1c;
+  --color-liquid-kelp: #003734;
+  --color-liquid-mist: #edfffe;
+  --color-platinum: #ffffff;
+  --color-silver-mist: #bbc7c6;
+  --color-ash: #f2f2f2;
+  --color-slate-deep: #707777;
+  --color-lavender-phosphor: #fde9ff;
+  --color-bioluminescent-gradient: #00827c;
+  --color-aurora-gradient: #cbfffc;
+
+  /* Typography */
+  --font-sans: 'DM Sans', 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  --font-matter: 'DM Sans', 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  --font-arial: 'Arial', ui-sans-serif, system-ui, sans-serif;
+  --font-mono: 'JetBrains Mono', monospace;
+
+  /* Typography — Scale */
+  --text-caption: 10px;
+  --leading-caption: 1.4;
+  --tracking-caption: 1.5px;
+  --text-body: 16px;
+  --leading-body: 1.4;
+  --tracking-body: 0px;
+  --text-subheading: 24px;
+  --leading-subheading: 1.3;
+  --tracking-subheading: -0.48px;
+  --text-heading: 36px;
+  --leading-heading: 1;
+  --tracking-heading: 0px;
+  --text-heading-lg: 61px;
+  --leading-heading-lg: 1;
+  --tracking-heading-lg: -2.44px;
+  --text-display: 96px;
+  --leading-display: 1;
+  --tracking-display: -3.84px;
+
+  /* Spacing */
+  --spacing-12: 12px;
+  --spacing-16: 16px;
+  --spacing-20: 20px;
+  --spacing-24: 24px;
+  --spacing-28: 28px;
+  --spacing-32: 32px;
+  --spacing-36: 36px;
+  --spacing-40: 40px;
+  --spacing-48: 48px;
+  --spacing-64: 64px;
+  --spacing-80: 80px;
+  --spacing-120: 120px;
+  --spacing-140: 140px;
+  --spacing-160: 160px;
+  --spacing-164: 164px;
+
+  /* Border Radius: 6px small/buttons, 16px cards */
+  --radius-md: 6px;
+  --radius-xl: 12px;
+  --radius-2xl: 16px;
+}
+
 @layer base {
-  :root {
-    --font-sans: 'Plus Jakarta Sans', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-    --font-mono: 'JetBrains Mono', monospace;
-  }
-
   body {
-    font-family: var(--font-sans);
-    background-color: #030712; /* Slate-950 */
-    color: #f8fafc; /* Slate-50 */
+    font-family: var(--font-matter);
+    background-color: #012624; /* Liquid Abyss */
+    color: #bbc7c6; /* Silver Mist */
+    letter-spacing: -0.01em;
+  }
+
+  /* Medium-only heading strategy (Matter 500) */
+  h1, h2, h3, h4, h5, h6 {
+    font-weight: 500;
+    color: #ffffff; /* Platinum */
+    letter-spacing: -0.02em;
   }
 }
 
-/* Custom aesthetic utilities */
-.glass-panel {
-  background: rgba(15, 23, 42, 0.75);
-  backdrop-filter: blur(16px);
-  -webkit-backdrop-filter: blur(16px);
+/* Auros Surface Stack (No drop shadows — depth via water layer shifts) */
+.surface-card {
+  background-color: #003734; /* Liquid Kelp */
+  border-radius: 16px;
   border: 1px solid rgba(255, 255, 255, 0.08);
+  box-shadow: none !important;
 }
 
-.glass-card {
-  background: rgba(30, 41, 59, 0.6);
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.37);
+.surface-deep {
+  background-color: #011d1c; /* Liquid Deep */
+  border-radius: 16px;
+  border: 1px solid rgba(255, 255, 255, 0.05);
+  box-shadow: none !important;
 }
 
-.glow-indigo {
-  box-shadow: 0 0 35px -5px rgba(99, 102, 241, 0.25);
+.surface-abyss {
+  background-color: #012624; /* Liquid Abyss */
 }
 
-.glow-emerald {
-  box-shadow: 0 0 35px -5px rgba(16, 185, 129, 0.25);
+/* Gradient Pill Button (Auros Signature CTA) */
+.btn-aurora {
+  background: linear-gradient(90deg, rgb(203, 255, 252) 0%, rgb(237, 255, 254) 26.25%, rgb(255, 253, 250) 47.57%, rgb(250, 209, 255) 88.96%);
+  border-radius: 6px;
+  color: #012624;
+  font-family: var(--font-arial);
+  font-size: 14px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  font-weight: 500;
+  box-shadow: none;
+  transition: opacity 0.2s ease, transform 0.15s ease;
 }
 
-.glow-rose {
-  box-shadow: 0 0 35px -5px rgba(244, 63, 94, 0.3);
+.btn-aurora:hover {
+  opacity: 0.92;
+  transform: translateY(-1px);
 }
 
-/* Pulse animation for live indicators */
-@keyframes soft-pulse {
-  0%, 100% { opacity: 1; transform: scale(1); }
-  50% { opacity: 0.6; transform: scale(0.96); }
+.btn-bioluminescent {
+  background: linear-gradient(90deg, rgb(0, 130, 124) 0%, rgb(203, 255, 252) 100%);
+  border-radius: 6px;
+  color: #012624;
+  font-size: 13px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  font-weight: 500;
+  box-shadow: none;
+  transition: opacity 0.2s ease, transform 0.15s ease;
 }
 
-.animate-soft-pulse {
-  animation: soft-pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+.btn-bioluminescent:hover {
+  opacity: 0.92;
+  transform: translateY(-1px);
 }
 
-/* Custom Scrollbar */
+.btn-action {
+  background-color: #003734;
+  border-radius: 6px;
+  color: #ffffff;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  font-size: 13px;
+  font-weight: 500;
+  box-shadow: none;
+  transition: background-color 0.2s ease, border-color 0.2s ease;
+}
+
+.btn-action:hover {
+  background-color: #014844;
+  border-color: rgba(255, 255, 255, 0.22);
+}
+
+/* 32x32 Arrow Icon Button */
+.btn-arrow {
+  width: 32px;
+  height: 32px;
+  border-radius: 6px;
+  background-color: rgba(3, 81, 75, 0.5);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: #ffffff;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  transition: background-color 0.2s ease, border-color 0.2s ease, transform 0.15s ease;
+}
+
+.btn-arrow:hover {
+  background-color: rgba(3, 81, 75, 0.85);
+  border-color: rgba(203, 255, 252, 0.4);
+  transform: scale(1.05);
+}
+
+/* Eyebrow / Technical Section Label */
+.eyebrow-label {
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  font-size: 12px;
+  color: #edfffe;
+  font-weight: 500;
+}
+
+/* Custom Abyssal Scrollbar */
 ::-webkit-scrollbar {
-  width: 8px;
-  height: 8px;
+  width: 6px;
+  height: 6px;
 }
 ::-webkit-scrollbar-track {
-  background: #090d16;
+  background: #011d1c;
 }
 ::-webkit-scrollbar-thumb {
-  background: #1e293b;
-  border-radius: 4px;
+  background: #003734;
+  border-radius: 3px;
 }
 ::-webkit-scrollbar-thumb:hover {
-  background: #334155;
+  background: #00827c;
 }
