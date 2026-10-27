@@ -111,7 +111,6 @@ export const WordImportModal: React.FC<WordImportModalProps> = ({
           q.correctOptionIds = [...q.correctOptionIds, optionId];
         }
       } else {
-        // Single choice or true/false
         q.correctOptionIds = [optionId];
       }
 
@@ -127,72 +126,67 @@ export const WordImportModal: React.FC<WordImportModalProps> = ({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-4 md:p-6 overflow-y-auto bg-slate-950/85 backdrop-blur-md">
-      <div className="relative w-full max-w-4xl bg-slate-900 border border-slate-800 rounded-2xl sm:rounded-3xl shadow-2xl overflow-hidden flex flex-col max-h-[92vh] sm:max-h-[88vh]">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-[#011d1c]/80 backdrop-blur-md animate-fadeIn">
+      <div className="surface-card w-full max-w-4xl max-h-[90vh] flex flex-col rounded-2xl overflow-hidden border border-white/10">
         {/* Header */}
-        <div className="px-4 sm:px-6 py-3.5 sm:py-5 border-b border-slate-800 flex items-center justify-between bg-slate-900/50">
-          <div className="flex items-center gap-2.5 sm:gap-3">
-            <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-xl bg-blue-500/10 border border-blue-500/30 flex items-center justify-center text-blue-400 shrink-0">
-              <FileText className="w-4 h-4 sm:w-5 sm:h-5" />
+        <div className="px-6 py-4 bg-[#003734] border-b border-white/10 flex items-center justify-between shrink-0">
+          <div className="flex items-center gap-3">
+            <div className="w-8 h-8 rounded-md bg-[#011d1c] border border-white/10 flex items-center justify-center text-[#cbfffc]">
+              <FileText className="w-4 h-4" />
             </div>
             <div>
-              <h2 className="text-sm sm:text-base md:text-lg font-bold text-white flex flex-wrap items-center gap-1.5 sm:gap-2">
+              <span className="eyebrow-label text-[10px] text-[#edfffe] block">Auros • Importador DOCX</span>
+              <h2 className="text-base sm:text-lg font-medium text-white tracking-tight">
                 Importar Preguntas desde Word
-                <span className="text-[9px] sm:text-[10px] uppercase font-bold tracking-wider px-2 py-0.5 rounded-full bg-indigo-500/10 border border-indigo-500/30 text-indigo-400">
-                  Formato Testportal
-                </span>
               </h2>
-              <p className="text-[11px] sm:text-xs text-slate-400 hidden xs:block">
-                Carga un archivo .docx o pega el contenido copiado de tu documento.
-              </p>
             </div>
           </div>
           <button
             onClick={onClose}
-            className="p-1.5 sm:p-2 rounded-xl text-slate-400 hover:text-white hover:bg-slate-800 transition"
+            className="w-8 h-8 rounded-md bg-[#011d1c] border border-white/10 text-[#bbc7c6] hover:text-white flex items-center justify-center transition"
           >
-            <X className="w-5 h-5" />
+            <X className="w-4 h-4" />
           </button>
         </div>
 
         {/* Modal Body */}
-        <div className="flex-1 overflow-y-auto p-4 sm:p-6 space-y-4 sm:space-y-6">
+        <div className="flex-1 overflow-y-auto p-6 space-y-6 bg-[#012624]/60">
           {/* Tabs */}
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 border-b border-slate-800 pb-3">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-white/10 pb-3">
             <div className="flex flex-wrap gap-2">
               <button
                 type="button"
                 onClick={() => setActiveTab('file')}
-                className={`px-3 sm:px-4 py-1.5 sm:py-2 rounded-xl text-xs font-semibold flex items-center gap-1.5 sm:gap-2 transition ${
+                className={`px-4 py-2 rounded-md text-xs font-medium uppercase tracking-[0.08em] flex items-center gap-2 transition border ${
                   activeTab === 'file'
-                    ? 'bg-blue-600 text-white shadow-lg shadow-blue-500/20'
-                    : 'bg-slate-800/60 text-slate-400 hover:text-white hover:bg-slate-800'
+                    ? 'bg-[#003734] border-[#cbfffc] text-white'
+                    : 'bg-[#011d1c] border-white/10 text-[#bbc7c6] hover:text-white'
                 }`}
               >
-                <Upload className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
-                Subir Archivo .docx
+                <Upload className="w-3.5 h-3.5 text-[#cbfffc]" />
+                <span>Archivo .docx</span>
               </button>
               <button
                 type="button"
                 onClick={() => setActiveTab('text')}
-                className={`px-3 sm:px-4 py-1.5 sm:py-2 rounded-xl text-xs font-semibold flex items-center gap-1.5 sm:gap-2 transition ${
+                className={`px-4 py-2 rounded-md text-xs font-medium uppercase tracking-[0.08em] flex items-center gap-2 transition border ${
                   activeTab === 'text'
-                    ? 'bg-blue-600 text-white shadow-lg shadow-blue-500/20'
-                    : 'bg-slate-800/60 text-slate-400 hover:text-white hover:bg-slate-800'
+                    ? 'bg-[#003734] border-[#cbfffc] text-white'
+                    : 'bg-[#011d1c] border-white/10 text-[#bbc7c6] hover:text-white'
                 }`}
               >
-                <FileCode className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
-                Pegar Texto de Word
+                <FileCode className="w-3.5 h-3.5 text-[#cbfffc]" />
+                <span>Pegar Texto</span>
               </button>
             </div>
 
             <button
               type="button"
               onClick={handleLoadSample}
-              className="text-xs text-indigo-400 hover:text-indigo-300 flex items-center gap-1.5 transition"
+              className="text-xs text-[#cbfffc] hover:underline flex items-center gap-1.5 transition uppercase tracking-[0.08em]"
             >
               <Sparkles className="w-3.5 h-3.5" />
-              Ver formato de ejemplo
+              <span>Ver ejemplo de formato</span>
             </button>
           </div>
 
@@ -207,7 +201,7 @@ export const WordImportModal: React.FC<WordImportModalProps> = ({
                   handleFileUpload(e.dataTransfer.files[0]);
                 }
               }}
-              className="border-2 border-dashed border-slate-700 hover:border-blue-500/60 rounded-2xl p-8 text-center cursor-pointer transition bg-slate-950/40 hover:bg-blue-950/10 group"
+              className="border border-dashed border-white/20 hover:border-[#cbfffc] rounded-xl p-8 text-center cursor-pointer transition surface-deep group"
             >
               <input
                 ref={fileInputRef}
@@ -220,19 +214,19 @@ export const WordImportModal: React.FC<WordImportModalProps> = ({
                   }
                 }}
               />
-              <div className="w-14 h-14 rounded-2xl bg-blue-500/10 text-blue-400 border border-blue-500/30 flex items-center justify-center mx-auto mb-3 group-hover:scale-105 transition">
-                <Upload className="w-6 h-6" />
+              <div className="w-12 h-12 rounded-md bg-[#003734] text-[#cbfffc] border border-white/10 flex items-center justify-center mx-auto mb-3 group-hover:scale-105 transition">
+                <Upload className="w-5 h-5" />
               </div>
-              <p className="text-sm font-semibold text-white">
+              <p className="text-sm font-medium text-white">
                 {selectedFileName ? selectedFileName : 'Arrastra tu archivo .docx aquí o haz clic para explorar'}
               </p>
-              <p className="text-xs text-slate-500 mt-1">
+              <p className="text-xs text-[#707777] mt-1">
                 Formatos soportados: Microsoft Word (.docx) o Archivo de texto (.txt)
               </p>
               {isProcessing && (
-                <div className="mt-4 flex items-center justify-center gap-2 text-blue-400 text-xs font-medium">
-                  <div className="w-4 h-4 border-2 border-blue-400 border-t-transparent rounded-full animate-spin"></div>
-                  Procesando documento Word...
+                <div className="mt-4 flex items-center justify-center gap-2 text-[#cbfffc] text-xs font-mono">
+                  <div className="w-4 h-4 border-2 border-[#cbfffc] border-t-transparent rounded-full animate-spin"></div>
+                  Procesando documento...
                 </div>
               )}
             </div>
@@ -240,29 +234,24 @@ export const WordImportModal: React.FC<WordImportModalProps> = ({
 
           {/* Tab 2: Paste Text */}
           {activeTab === 'text' && (
-            <div>
-              <div className="flex items-center justify-between mb-2">
-                <label className="text-xs font-semibold text-slate-300 flex items-center gap-1.5">
-                  Pega aquí el contenido copiado de tu documento Word:
-                </label>
-                <span className="text-[11px] text-slate-500">
-                  Usa asterisco (*) o &quot;Respuesta: Letra&quot; para indicar la opción correcta
-                </span>
-              </div>
+            <div className="space-y-2">
+              <label className="block text-xs uppercase tracking-[0.08em] font-medium text-[#edfffe]">
+                Contenido copiado de Word:
+              </label>
               <textarea
                 rows={8}
                 value={inputText}
                 onChange={e => handleTextChange(e.target.value)}
-                placeholder={`1. ¿Cuál es la capital de Italia?\nA) Madrid\nB) París\n*C) Roma\nD) Lisboa\n\n2. Pregunta de opción múltiple...\nRespuesta: A, B`}
-                className="w-full rounded-2xl bg-slate-950 border border-slate-800 p-4 text-xs font-mono text-slate-200 placeholder-slate-600 focus:outline-none focus:border-blue-500 transition resize-none"
+                placeholder={`1. ¿Cuál es la capital de Italia?\nA) Madrid\nB) Berlín\n*C) Roma\nD) Lisboa\n\nRespuesta: C`}
+                className="w-full rounded-md bg-[#011d1c] border border-white/15 p-4 text-xs font-mono text-white placeholder-[#707777] focus:outline-none focus:border-[#cbfffc] transition resize-none"
               />
             </div>
           )}
 
           {/* Error Message */}
           {errorMessage && (
-            <div className="p-4 rounded-xl bg-rose-500/10 border border-rose-500/30 text-rose-300 text-xs flex items-center gap-2">
-              <AlertCircle className="w-4 h-4 flex-shrink-0 text-rose-400" />
+            <div className="p-4 rounded-md bg-[#011d1c] border border-rose-500/40 text-[#edfffe] text-xs flex items-center gap-2">
+              <AlertCircle className="w-4 h-4 shrink-0 text-rose-400" />
               <span>{errorMessage}</span>
             </div>
           )}
@@ -270,30 +259,30 @@ export const WordImportModal: React.FC<WordImportModalProps> = ({
           {/* Questions Preview Section */}
           {parsedItems.length > 0 && (
             <div className="space-y-4 pt-2">
-              <div className="flex items-center justify-between">
+              <div className="flex items-center justify-between pb-2 border-b border-white/10">
                 <div className="flex items-center gap-2">
-                  <span className="w-2 h-2 rounded-full bg-emerald-400"></span>
-                  <h3 className="text-sm font-bold text-white">
+                  <span className="w-2 h-2 rounded-full bg-[#cbfffc]"></span>
+                  <h3 className="text-sm font-medium text-white">
                     Preguntas Detectadas ({parsedItems.length})
                   </h3>
                 </div>
-                <span className="text-xs text-slate-400">
-                  Haz clic en las opciones marcadas en verde para cambiar la respuesta correcta
+                <span className="text-[11px] text-[#bbc7c6]">
+                  Haz clic en las opciones para alternar la respuesta correcta
                 </span>
               </div>
 
-              <div className="space-y-3 max-h-[280px] overflow-y-auto pr-2">
+              <div className="space-y-3 max-h-[300px] overflow-y-auto pr-1">
                 {parsedItems.map((q, qIdx) => (
                   <div
                     key={q.id}
-                    className="p-4 rounded-2xl bg-slate-950 border border-slate-800 text-xs space-y-2.5"
+                    className="p-4 rounded-xl surface-deep border border-white/10 text-xs space-y-2.5"
                   >
                     <div className="flex items-start justify-between gap-2">
-                      <span className="font-semibold text-white">
-                        <span className="text-blue-400 font-bold mr-1.5">{qIdx + 1}.</span>
+                      <span className="font-medium text-white">
+                        <span className="text-[#cbfffc] font-mono mr-1.5">{qIdx + 1}.</span>
                         {q.prompt}
                       </span>
-                      <span className="text-[10px] px-2 py-0.5 rounded-full bg-slate-800 text-slate-400 uppercase font-mono">
+                      <span className="text-[10px] px-2 py-0.5 rounded-md bg-[#003734] text-[#edfffe] uppercase font-mono">
                         {q.type === 'multiple_choice' ? 'Múltiple' : q.type === 'true_false' ? 'V/F' : 'Única'}
                       </span>
                     </div>
@@ -307,17 +296,17 @@ export const WordImportModal: React.FC<WordImportModalProps> = ({
                             key={opt.id}
                             type="button"
                             onClick={() => toggleOptionCorrect(qIdx, opt.id)}
-                            className={`p-2 rounded-xl text-left flex items-center justify-between gap-2 border transition ${
+                            className={`p-2 rounded-md text-left flex items-center justify-between gap-2 border transition ${
                               isCorrect
-                                ? 'bg-emerald-500/10 border-emerald-500/40 text-emerald-300 font-medium'
-                                : 'bg-slate-900 border-slate-800 text-slate-400 hover:border-slate-700 hover:text-slate-200'
+                                ? 'bg-[#003734] border-[#00827c] text-white font-medium'
+                                : 'bg-[#011d1c] border-white/10 text-[#bbc7c6] hover:border-white/20'
                             }`}
                           >
                             <span className="truncate">{opt.text}</span>
                             {isCorrect ? (
-                              <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400 flex-shrink-0" />
+                              <CheckCircle2 className="w-3.5 h-3.5 text-[#cbfffc] shrink-0" />
                             ) : (
-                              <span className="w-3.5 h-3.5 rounded-full border border-slate-700 flex-shrink-0"></span>
+                              <span className="w-3.5 h-3.5 rounded-full border border-white/20 shrink-0"></span>
                             )}
                           </button>
                         );
@@ -331,39 +320,37 @@ export const WordImportModal: React.FC<WordImportModalProps> = ({
 
           {/* Formatting Help Guide */}
           {parsedItems.length === 0 && !errorMessage && (
-            <div className="p-4 rounded-2xl bg-slate-950/60 border border-slate-800/80 text-xs space-y-2 text-slate-400">
-              <div className="flex items-center gap-1.5 text-slate-300 font-semibold">
-                <HelpCircle className="w-3.5 h-3.5 text-blue-400" />
-                Guía de formato compatible (Word / Testportal):
+            <div className="p-4 rounded-xl surface-deep border border-white/10 text-xs space-y-2 text-[#bbc7c6]">
+              <div className="flex items-center gap-1.5 text-[#edfffe] font-medium uppercase tracking-[0.08em]">
+                <HelpCircle className="w-3.5 h-3.5 text-[#cbfffc]" />
+                <span>Guía de formato compatible:</span>
               </div>
-              <ul className="list-disc list-inside space-y-1 pl-1 text-[11px] text-slate-400">
-                <li>Numera cada pregunta (ej: <code className="text-slate-300">1. ¿Pregunta?</code> o <code className="text-slate-300">Pregunta 1:</code>).</li>
-                <li>Escribe cada opción en una línea con prefijo de letra (ej: <code className="text-slate-300">A) Opción</code>, <code className="text-slate-300">B. Opción</code>).</li>
-                <li>
-                  Para indicar la respuesta correcta, coloca un asterisco al inicio (ej: <code className="text-emerald-400">*C) Opción</code>) o añade una línea al final como <code className="text-emerald-400">Respuesta: C</code>.
-                </li>
+              <ul className="list-disc list-inside space-y-1 pl-1 text-[11px] text-[#bbc7c6]">
+                <li>Numera cada pregunta (ej: <code className="text-white">1. ¿Pregunta?</code>).</li>
+                <li>Escribe cada opción con letra (ej: <code className="text-white">A) Opción</code>, <code className="text-white">B) Opción</code>).</li>
+                <li>Indica la correcta con asterisco (ej: <code className="text-[#cbfffc]">*C) Opción</code>) o al final <code className="text-[#cbfffc]">Respuesta: C</code>.</li>
               </ul>
             </div>
           )}
         </div>
 
         {/* Modal Footer */}
-        <div className="px-4 sm:px-6 py-3.5 sm:py-4 border-t border-slate-800 flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-slate-900/60">
-          <label className="flex items-center gap-2 cursor-pointer text-xs text-slate-400 hover:text-slate-200">
+        <div className="px-6 py-4 border-t border-white/10 flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-[#003734]">
+          <label className="flex items-center gap-2 cursor-pointer text-xs text-[#edfffe]">
             <input
               type="checkbox"
               checked={replaceExisting}
               onChange={e => setReplaceExisting(e.target.checked)}
-              className="rounded bg-slate-950 border-slate-700 text-blue-600 focus:ring-0"
+              className="rounded accent-[#00827c]"
             />
             <span>Reemplazar las preguntas actuales</span>
           </label>
 
-          <div className="flex items-center justify-end gap-2 sm:gap-3 w-full sm:w-auto">
+          <div className="flex items-center justify-end gap-3 w-full sm:w-auto">
             <button
               type="button"
               onClick={onClose}
-              className="flex-1 sm:flex-initial px-3 sm:px-4 py-2 text-xs font-semibold rounded-xl text-slate-400 hover:text-white hover:bg-slate-800 transition text-center"
+              className="px-4 py-2 text-xs font-medium uppercase tracking-[0.08em] rounded-md text-[#bbc7c6] hover:text-white transition"
             >
               Cancelar
             </button>
@@ -371,9 +358,9 @@ export const WordImportModal: React.FC<WordImportModalProps> = ({
               type="button"
               disabled={parsedItems.length === 0}
               onClick={handleConfirmImport}
-              className="flex-1 sm:flex-initial px-4 sm:px-5 py-2 text-xs font-bold rounded-xl bg-blue-600 hover:bg-blue-500 disabled:opacity-40 disabled:cursor-not-allowed text-white shadow-lg shadow-blue-500/20 flex items-center justify-center gap-1.5 sm:gap-2 transition"
+              className="btn-aurora px-4 py-2 flex items-center gap-2 disabled:opacity-40"
             >
-              <Check className="w-4 h-4" />
+              <Check className="w-4 h-4 text-[#012624]" />
               <span>Importar {parsedItems.length > 0 ? `(${parsedItems.length})` : ''}</span>
             </button>
           </div>
