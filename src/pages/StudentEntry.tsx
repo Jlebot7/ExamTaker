@@ -123,7 +123,7 @@ export const StudentEntry: React.FC = () => {
             <div className="flex items-center justify-center gap-1.5 mb-1">
               <span className="w-1.5 h-1.5 rounded-full bg-[#00827c]"></span>
               <span className="text-[10px] font-mono tracking-[0.14em] uppercase text-[#edfffe]/80 font-medium">
-                TERMINAL DE EVALUACIÓN
+                AUROS TESTQ // TERMINAL DE EVALUACIÓN
               </span>
             </div>
             <h1 className="text-2xl font-medium text-white tracking-tight">
@@ -160,7 +160,7 @@ export const StudentEntry: React.FC = () => {
                   required
                   value={examCode}
                   onChange={e => setExamCode(e.target.value.toUpperCase())}
-                  placeholder="Ej: DEMO-101"
+                  placeholder="Ej: EVAL-2026"
                   className="w-full surface-deep border border-white/10 focus:border-[#00827c] rounded-[6px] pl-10 pr-4 py-2.5 text-xs text-white uppercase tracking-wider font-mono placeholder:normal-case placeholder:font-sans placeholder-[#bbc7c6]/50 outline-none transition"
                 />
               </div>
@@ -251,17 +251,6 @@ export const StudentEntry: React.FC = () => {
               )}
             </button>
           </form>
-
-          {/* Demo helper */}
-          <div className="mt-5 text-center">
-            <button
-              type="button"
-              onClick={() => setExamCode('DEMO-101')}
-              className="text-xs text-[#edfffe] hover:underline font-mono"
-            >
-              ¿Probar con el examen de demostración (DEMO-101)?
-            </button>
-          </div>
         </div>
       </div>
     </div>
