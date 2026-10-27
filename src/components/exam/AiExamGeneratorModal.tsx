@@ -313,7 +313,7 @@ export const AiExamGeneratorModal: React.FC<AiExamGeneratorModalProps> = ({
                 {showKeyConfig && (
                   <div className="p-4 pt-1 space-y-3 border-t border-white/5 text-xs">
                     <p className="text-[11px] text-[#bbc7c6]">
-                      Groq permite inferencia ultra-rápida con <strong className="text-white">llama-3.3-70b-versatile</strong>. Puedes obtener una clave gratuita en{' '}
+                      Groq permite inferencia ultra-rápida con <strong className="text-white">gpt-oss-120b</strong>. Puedes obtener una clave gratuita en{' '}
                       <a
                         href="https://console.groq.com/keys"
                         target="_blank"
