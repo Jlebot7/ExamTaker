@@ -16,6 +16,9 @@ import {
   generateExamQuestions, 
   getStoredGroqKey, 
   setStoredGroqKey,
+  getAvailableGroqModels,
+  getStoredGroqModel,
+  setStoredGroqModel,
   type GeneratedQuestionItem 
 } from '../../services/aiExamService';
 
@@ -39,10 +42,13 @@ export const AiExamGeneratorModal: React.FC<AiExamGeneratorModalProps> = ({
   const [customInstructions, setCustomInstructions] = useState('');
   const [replaceExisting, setReplaceExisting] = useState(false);
 
-  // API Key State
+  // API Key & Model State
   const [apiKey, setApiKey] = useState('');
   const [saveKey, setSaveKey] = useState(true);
   const [showKeyConfig, setShowKeyConfig] = useState(false);
+  const [selectedModel, setSelectedModel] = useState(getStoredGroqModel());
+  const [availableModels, setAvailableModels] = useState<string[]>([]);
+  const [loadingModels, setLoadingModels] = useState(false);
 
   // Process and Preview State
   const [isGenerating, setIsGenerating] = useState(false);
@@ -50,15 +56,45 @@ export const AiExamGeneratorModal: React.FC<AiExamGeneratorModalProps> = ({
   const [generatedQuestions, setGeneratedQuestions] = useState<GeneratedQuestionItem[]>([]);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
 
+  // Load stored settings and discover available models
   useEffect(() => {
     if (isOpen) {
-      const stored = getStoredGroqKey();
-      setApiKey(stored);
-      if (!stored) {
+      const storedKey = getStoredGroqKey();
+      setApiKey(storedKey);
+      setSelectedModel(getStoredGroqModel());
+      if (!storedKey) {
         setShowKeyConfig(true);
+      } else {
+        loadModelsForApiKey(storedKey);
       }
     }
   }, [isOpen]);
+
+  const loadModelsForApiKey = async (key: string) => {
+    if (!key.trim()) {
+      setAvailableModels([]);
+      return;
+    }
+    setLoadingModels(true);
+    try {
+      const models = await getAvailableGroqModels(key);
+      if (models.length > 0) {
+        setAvailableModels(models);
+        // If current selectedModel is not in the list, auto-select a compatible one
+        if (!models.includes(selectedModel)) {
+          const preferred = models.find(m => m.includes('gpt-oss-120b')) ||
+                            models.find(m => m.includes('gpt-oss')) ||
+                            models[0];
+          setSelectedModel(preferred);
+          setStoredGroqModel(preferred);
+        }
+      }
+    } catch {
+      // Ignore network errors on model list check
+    } finally {
+      setLoadingModels(false);
+    }
+  };
 
   if (!isOpen) return null;
 
@@ -76,6 +112,9 @@ export const AiExamGeneratorModal: React.FC<AiExamGeneratorModalProps> = ({
       if (saveKey && apiKey.trim()) {
         setStoredGroqKey(apiKey.trim());
       }
+      if (selectedModel.trim()) {
+        setStoredGroqModel(selectedModel.trim());
+      }
 
       const questions = await generateExamQuestions({
         topic: topic.trim(),
@@ -85,6 +124,7 @@ export const AiExamGeneratorModal: React.FC<AiExamGeneratorModalProps> = ({
         pointsPerQuestion: Number(pointsPerQuestion) || 5,
         customInstructions: customInstructions.trim() || undefined,
         apiKey: apiKey.trim() || undefined,
+        model: selectedModel.trim() || undefined,
       });
 
       setGeneratedQuestions(questions);
@@ -324,15 +364,69 @@ export const AiExamGeneratorModal: React.FC<AiExamGeneratorModalProps> = ({
                       </a>. Si no ingresas una clave, se utilizará el motor generativo local inteligente.
                     </p>
                     <div className="relative">
+                      <label className="block text-[10px] uppercase tracking-[0.08em] text-[#edfffe] mb-1">
+                        API Key de Groq
+                      </label>
                       <input
                         type="password"
                         value={apiKey}
                         onChange={e => setApiKey(e.target.value)}
+                        onBlur={e => loadModelsForApiKey(e.target.value)}
                         placeholder="gsk_..."
                         className="w-full bg-[#003734] border border-white/15 focus:border-[#cbfffc] rounded-md px-3.5 py-2 text-xs font-mono text-white placeholder-[#707777] outline-none"
                       />
                     </div>
-                    <label className="flex items-center gap-2 text-[11px] text-[#bbc7c6] cursor-pointer">
+
+                    {/* Model Selector */}
+                    <div>
+                      <div className="flex items-center justify-between mb-1">
+                        <label className="text-[10px] uppercase tracking-[0.08em] text-[#edfffe]">
+                          Modelo de IA en Groq
+                        </label>
+                        {loadingModels && (
+                          <span className="text-[10px] font-mono text-[#cbfffc] animate-pulse">
+                            Consultando tu cuenta...
+                          </span>
+                        )}
+                      </div>
+
+                      {availableModels.length > 0 ? (
+                        <select
+                          value={selectedModel}
+                          onChange={e => {
+                            setSelectedModel(e.target.value);
+                            setStoredGroqModel(e.target.value);
+                          }}
+                          className="w-full bg-[#003734] border border-white/15 focus:border-[#cbfffc] rounded-md px-3 py-2 text-xs font-mono text-white outline-none"
+                        >
+                          {availableModels.map(m => (
+                            <option key={m} value={m} className="bg-[#011d1c] text-white">
+                              {m} {m.includes('120b') ? '⚡ (Recomendado 120B)' : ''}
+                            </option>
+                          ))}
+                        </select>
+                      ) : (
+                        <div className="flex gap-2">
+                          <input
+                            type="text"
+                            value={selectedModel}
+                            onChange={e => {
+                              setSelectedModel(e.target.value);
+                              setStoredGroqModel(e.target.value);
+                            }}
+                            placeholder="openai/gpt-oss-120b"
+                            className="flex-1 bg-[#003734] border border-white/15 focus:border-[#cbfffc] rounded-md px-3 py-2 text-xs font-mono text-white outline-none"
+                          />
+                        </div>
+                      )}
+                      <p className="text-[10px] text-[#707777] mt-1 font-mono">
+                        {availableModels.length > 0
+                          ? `✓ ${availableModels.length} modelos habilitados detectados en tu clave de Groq.`
+                          : 'Preconfigurado con openai/gpt-oss-120b (con autodetección y fallback seguro).'}
+                      </p>
+                    </div>
+
+                    <label className="flex items-center gap-2 text-[11px] text-[#bbc7c6] cursor-pointer pt-1">
                       <input
                         type="checkbox"
                         checked={saveKey}
