@@ -16,7 +16,9 @@ import { useAuth } from '../contexts/AuthContext';
 import { examService } from '../services/examService';
 import type { Question, QuestionOption, QuestionType } from '../types';
 import { WordImportModal } from '../components/exam/WordImportModal';
+import { AiExamGeneratorModal } from '../components/exam/AiExamGeneratorModal';
 import type { ParsedImportItem } from '../utils/wordExamParser';
+import type { GeneratedQuestionItem } from '../services/aiExamService';
 
 export const ExamEditor: React.FC = () => {
   const { examId } = useParams<{ examId: string }>();
@@ -55,6 +57,7 @@ export const ExamEditor: React.FC = () => {
   const [saving, setSaving] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [isWordModalOpen, setIsWordModalOpen] = useState(false);
+  const [isAiModalOpen, setIsAiModalOpen] = useState(false);
 
   // Load existing exam if editing
   useEffect(() => {
@@ -86,6 +89,7 @@ export const ExamEditor: React.FC = () => {
           setCorrectAnswers(map);
         }
       } catch (err) {
+        console.error('Error al cargar examen:', err);
         setErrorMessage('Error al cargar la evaluación para edición');
       } finally {
         setLoading(false);
@@ -95,7 +99,7 @@ export const ExamEditor: React.FC = () => {
     loadExam();
   }, [examId, isEditing]);
 
-  // Question manipulation (defaults to 4 options)
+  // Question manipulation
   const addQuestion = (type: QuestionType = 'single_choice') => {
     const newQId = 'q_' + Math.random().toString(36).substring(2, 7);
     let options: QuestionOption[] = [];
@@ -145,7 +149,34 @@ export const ExamEditor: React.FC = () => {
       setCorrectAnswers(newCorrectMap);
     } else {
       setQuestions(prev => {
-        // If there is only 1 initial blank question, replace it cleanly
+        if (prev.length === 1 && !prev[0].prompt && prev[0].options.every(o => !o.text)) {
+          return newQuestions;
+        }
+        return [...prev, ...newQuestions];
+      });
+      setCorrectAnswers(prev => ({ ...prev, ...newCorrectMap }));
+    }
+  };
+
+  const handleAiImport = (generated: GeneratedQuestionItem[], replaceExisting: boolean) => {
+    const newQuestions: Question[] = generated.map(item => ({
+      id: item.id,
+      prompt: item.prompt,
+      type: item.type,
+      points: item.points,
+      options: item.options,
+    }));
+
+    const newCorrectMap: Record<string, string[]> = {};
+    generated.forEach(item => {
+      newCorrectMap[item.id] = item.correctOptionIds;
+    });
+
+    if (replaceExisting) {
+      setQuestions(newQuestions);
+      setCorrectAnswers(newCorrectMap);
+    } else {
+      setQuestions(prev => {
         if (prev.length === 1 && !prev[0].prompt && prev[0].options.every(o => !o.text)) {
           return newQuestions;
         }
@@ -225,7 +256,7 @@ export const ExamEditor: React.FC = () => {
   const setCorrectOption = (qId: string, optId: string) => {
     setCorrectAnswers(prev => ({
       ...prev,
-      [qId]: [optId], // single correct option
+      [qId]: [optId],
     }));
   };
 
@@ -308,59 +339,60 @@ export const ExamEditor: React.FC = () => {
   if (loading) {
     return (
       <div className="min-h-[50vh] flex items-center justify-center">
-        <div className="w-8 h-8 border-2 border-indigo-500 border-t-transparent rounded-full animate-spin"></div>
+        <div className="w-8 h-8 border-2 border-[#00827c] border-t-transparent rounded-full animate-spin"></div>
       </div>
     );
   }
 
   return (
-    <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+    <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-10 text-[#bbc7c6]">
       {/* Top navigation */}
       <div className="flex items-center justify-between gap-4 mb-6">
         <Link
           to="/teacher"
-          className="inline-flex items-center gap-1.5 text-xs font-semibold text-slate-400 hover:text-white transition"
+          className="inline-flex items-center gap-1.5 text-xs font-medium uppercase tracking-[0.08em] text-[#bbc7c6] hover:text-white transition"
         >
           <ArrowLeft className="w-4 h-4" />
           <span>Volver a Mis Evaluaciones</span>
         </Link>
 
         <div className="flex items-center gap-2">
-          <span className="text-xs text-slate-400">Puntaje Total:</span>
-          <span className="px-2.5 py-0.5 rounded-lg bg-indigo-500/20 text-indigo-300 font-mono font-bold text-xs">
-            {totalPoints} Puntos
+          <span className="text-xs uppercase tracking-[0.08em] text-[#bbc7c6]">Puntaje Total:</span>
+          <span className="px-3 py-1 rounded-md bg-[#011d1c] border border-white/10 text-[#fde9ff] font-mono font-medium text-xs">
+            {totalPoints} Pts
           </span>
         </div>
       </div>
 
       {/* Header */}
       <div className="mb-8">
-        <h1 className="text-2xl sm:text-3xl font-black text-white tracking-tight">
+        <span className="eyebrow-label text-xs text-[#edfffe] block mb-1">Auros • Editor de Evaluaciones</span>
+        <h1 className="text-2xl sm:text-3xl font-medium text-white tracking-tight">
           {isEditing ? 'Editar Evaluación' : 'Crear Nueva Evaluación'}
         </h1>
-        <p className="text-xs text-slate-400 mt-1">
-          Configura los parámetros de tiempo, tolerancia de infracciones anti-trampa y banco de preguntas.
+        <p className="text-xs text-[#bbc7c6] mt-1">
+          Configura parámetros de sincronización, límite de infracciones y banco estructurado de preguntas.
         </p>
       </div>
 
       {/* Error Alert */}
       {errorMessage && (
-        <div className="mb-6 p-4 rounded-xl bg-rose-500/10 border border-rose-500/30 text-rose-400 text-xs flex items-center gap-2.5 animate-fadeIn">
-          <AlertCircle className="w-4 h-4 shrink-0" />
+        <div className="mb-6 p-4 rounded-xl bg-[#011d1c] border border-rose-500/40 text-[#edfffe] text-xs flex items-center gap-2.5">
+          <AlertCircle className="w-4 h-4 text-rose-400 shrink-0" />
           <span>{errorMessage}</span>
         </div>
       )}
 
       <form onSubmit={handleSaveExam} className="space-y-8">
         {/* Card: General Settings */}
-        <div className="glass-card p-6 rounded-2xl border border-slate-800 space-y-5">
-          <h2 className="text-base font-bold text-white flex items-center gap-2">
-            <FileText className="w-4 h-4 text-indigo-400" />
+        <div className="surface-card p-6 sm:p-7 rounded-2xl border border-white/10 space-y-5">
+          <h2 className="text-base font-medium text-white flex items-center gap-2 tracking-tight">
+            <FileText className="w-4 h-4 text-[#cbfffc]" />
             <span>Configuración General</span>
           </h2>
 
           <div>
-            <label className="block text-xs font-semibold text-slate-300 mb-1.5">
+            <label className="block text-xs uppercase tracking-[0.08em] font-medium text-[#edfffe] mb-1.5">
               Título de la Evaluación *
             </label>
             <input
@@ -369,12 +401,12 @@ export const ExamEditor: React.FC = () => {
               value={title}
               onChange={e => setTitle(e.target.value)}
               placeholder="Ej: Examen Parcial: Arquitectura de Software y Sistemas Distribuidos"
-              className="w-full bg-slate-900/90 border border-slate-800 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 rounded-xl px-4 py-2.5 text-sm text-slate-100 placeholder-slate-500 outline-none transition"
+              className="w-full bg-[#011d1c] border border-white/15 focus:border-[#cbfffc] rounded-md px-4 py-2.5 text-sm text-white placeholder-[#707777] outline-none transition"
             />
           </div>
 
           <div>
-            <label className="block text-xs font-semibold text-slate-300 mb-1.5">
+            <label className="block text-xs uppercase tracking-[0.08em] font-medium text-[#edfffe] mb-1.5">
               Instrucciones para el Estudiante (Opcional)
             </label>
             <textarea
@@ -382,15 +414,15 @@ export const ExamEditor: React.FC = () => {
               value={description}
               onChange={e => setDescription(e.target.value)}
               placeholder="Ej: Lee cuidadosamente cada pregunta. Recuerda no cambiar de pestaña durante el examen."
-              className="w-full bg-slate-900/90 border border-slate-800 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 rounded-xl px-4 py-2 text-xs text-slate-100 placeholder-slate-500 outline-none transition"
+              className="w-full bg-[#011d1c] border border-white/15 focus:border-[#cbfffc] rounded-md px-4 py-2 text-xs text-white placeholder-[#707777] outline-none transition"
             />
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 pt-2">
             {/* Duration */}
             <div>
-              <label className="block text-xs font-semibold text-slate-300 mb-1.5 flex items-center gap-1.5">
-                <Clock className="w-3.5 h-3.5 text-indigo-400" />
+              <label className="block text-xs uppercase tracking-[0.08em] font-medium text-[#edfffe] mb-1.5 flex items-center gap-1.5">
+                <Clock className="w-3.5 h-3.5 text-[#cbfffc]" />
                 <span>Duración (Minutos)</span>
               </label>
               <input
@@ -400,14 +432,14 @@ export const ExamEditor: React.FC = () => {
                 required
                 value={durationMinutes}
                 onChange={e => setDurationMinutes(Number(e.target.value))}
-                className="w-full bg-slate-900/90 border border-slate-800 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 rounded-xl px-3.5 py-2 text-sm text-slate-100 outline-none transition font-mono"
+                className="w-full bg-[#011d1c] border border-white/15 focus:border-[#cbfffc] rounded-md px-3.5 py-2 text-sm text-[#fde9ff] outline-none transition font-mono"
               />
-              <span className="text-[10px] text-slate-500 mt-1 block">Sincronizado vía Firebase Server Time</span>
+              <span className="text-[10px] text-[#707777] mt-1 block">Sincronizado vía Cloud Server Time</span>
             </div>
 
             {/* Max Violations */}
             <div>
-              <label className="block text-xs font-semibold text-slate-300 mb-1.5 flex items-center gap-1.5">
+              <label className="block text-xs uppercase tracking-[0.08em] font-medium text-[#edfffe] mb-1.5 flex items-center gap-1.5">
                 <ShieldAlert className="w-3.5 h-3.5 text-amber-400" />
                 <span>Límite de Infracciones</span>
               </label>
@@ -418,29 +450,29 @@ export const ExamEditor: React.FC = () => {
                 required
                 value={maxViolations}
                 onChange={e => setMaxViolations(Number(e.target.value))}
-                className="w-full bg-slate-900/90 border border-slate-800 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 rounded-xl px-3.5 py-2 text-sm text-slate-100 outline-none transition font-mono"
+                className="w-full bg-[#011d1c] border border-white/15 focus:border-[#cbfffc] rounded-md px-3.5 py-2 text-sm text-[#fde9ff] outline-none transition font-mono"
               />
-              <span className="text-[10px] text-slate-500 mt-1 block">Auto-descalificación al alcanzar el límite</span>
+              <span className="text-[10px] text-[#707777] mt-1 block">Auto-descalificación al alcanzar el límite</span>
             </div>
 
             {/* Published Switch */}
             <div>
-              <label className="block text-xs font-semibold text-slate-300 mb-1.5">
+              <label className="block text-xs uppercase tracking-[0.08em] font-medium text-[#edfffe] mb-1.5">
                 Estado de Disponibilidad
               </label>
               <button
                 type="button"
                 onClick={() => setIsPublished(!isPublished)}
-                className={`w-full py-2 px-3 rounded-xl border text-xs font-semibold flex items-center justify-between transition ${
+                className={`w-full py-2 px-3 rounded-md border text-xs font-medium uppercase tracking-[0.08em] flex items-center justify-between transition ${
                   isPublished
-                    ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-400'
-                    : 'bg-slate-900 border-slate-800 text-slate-400'
+                    ? 'bg-[#011d1c] border-[#00827c] text-[#edfffe]'
+                    : 'bg-[#011d1c] border-white/10 text-[#707777]'
                 }`}
               >
                 <span>{isPublished ? 'Publicado (Activo)' : 'Borrador (Oculto)'}</span>
-                <span className={`w-2.5 h-2.5 rounded-full ${isPublished ? 'bg-emerald-400' : 'bg-slate-600'}`}></span>
+                <span className={`w-2.5 h-2.5 rounded-full ${isPublished ? 'bg-[#cbfffc]' : 'bg-slate-600'}`}></span>
               </button>
-              <span className="text-[10px] text-slate-500 mt-1 block">Los alumnos solo pueden entrar si está publicado</span>
+              <span className="text-[10px] text-[#707777] mt-1 block">Acceso disponible con PIN</span>
             </div>
           </div>
         </div>
@@ -448,37 +480,49 @@ export const ExamEditor: React.FC = () => {
         {/* Section: Question Builder */}
         <div className="space-y-6">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-            <h2 className="text-lg font-bold text-white flex items-center gap-2">
-              <Sparkles className="w-4 h-4 text-indigo-400" />
+            <h2 className="text-lg font-medium text-white flex items-center gap-2">
+              <Sparkles className="w-4 h-4 text-[#cbfffc]" />
               <span>Preguntas ({questions.length})</span>
             </h2>
 
+            {/* Action Buttons: Import from Word, Generate with AI, Add Manual */}
             <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto">
+              {/* Button: Import from Word */}
               <button
                 type="button"
                 onClick={() => setIsWordModalOpen(true)}
-                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-blue-600/20 hover:bg-blue-600/30 border border-blue-500/30 text-blue-300 text-xs font-semibold transition shadow-sm"
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md bg-[#011d1c] hover:bg-[#003734] border border-white/15 text-[#edfffe] text-xs font-medium uppercase tracking-[0.08em] transition"
               >
-                <FileText className="w-3.5 h-3.5" />
-                <span>Importar desde Word</span>
+                <FileText className="w-3.5 h-3.5 text-[#cbfffc]" />
+                <span>Importar Word</span>
+              </button>
+
+              {/* Button: Generate Test with AI (User Request) */}
+              <button
+                type="button"
+                onClick={() => setIsAiModalOpen(true)}
+                className="btn-bioluminescent inline-flex items-center gap-1.5 px-3.5 py-1.5 text-xs font-medium tracking-[0.08em]"
+              >
+                <Sparkles className="w-3.5 h-3.5" />
+                <span>Generar con IA</span>
               </button>
 
               <button
                 type="button"
                 onClick={() => addQuestion('single_choice')}
-                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-indigo-600/20 hover:bg-indigo-600/30 border border-indigo-500/30 text-indigo-300 text-xs font-semibold transition"
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md bg-[#003734] hover:bg-white/10 border border-white/15 text-white text-xs font-medium uppercase tracking-[0.08em] transition"
               >
-                <Plus className="w-3.5 h-3.5" />
-                <span>+ Opción Múltiple</span>
+                <Plus className="w-3.5 h-3.5 text-[#cbfffc]" />
+                <span>+ Opción Múlt.</span>
               </button>
 
               <button
                 type="button"
                 onClick={() => addQuestion('true_false')}
-                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-purple-600/20 hover:bg-purple-600/30 border border-purple-500/30 text-purple-300 text-xs font-semibold transition"
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md bg-[#003734] hover:bg-white/10 border border-white/15 text-white text-xs font-medium uppercase tracking-[0.08em] transition"
               >
-                <Plus className="w-3.5 h-3.5" />
-                <span>+ Verdadero / Falso</span>
+                <Plus className="w-3.5 h-3.5 text-[#fde9ff]" />
+                <span>+ V / F</span>
               </button>
             </div>
           </div>
@@ -487,29 +531,29 @@ export const ExamEditor: React.FC = () => {
           {questions.map((question, qIdx) => (
             <div
               key={question.id}
-              className="glass-card p-6 rounded-2xl border border-slate-800 hover:border-slate-700/80 transition relative space-y-4 shadow-lg"
+              className="surface-card p-6 rounded-2xl border border-white/10 space-y-4"
             >
               {/* Question Header */}
-              <div className="flex items-center justify-between pb-3 border-b border-slate-800">
+              <div className="flex items-center justify-between pb-3 border-b border-white/10">
                 <div className="flex items-center gap-2.5">
-                  <span className="w-6 h-6 rounded-lg bg-indigo-600/20 text-indigo-400 font-mono font-bold text-xs flex items-center justify-center">
+                  <span className="w-6 h-6 rounded-md bg-[#011d1c] text-[#cbfffc] font-mono font-medium text-xs flex items-center justify-center border border-white/10">
                     {qIdx + 1}
                   </span>
-                  <span className="text-xs font-semibold text-slate-300 uppercase tracking-wider">
+                  <span className="text-xs font-medium text-[#edfffe] uppercase tracking-[0.08em]">
                     {question.type === 'true_false' ? 'Verdadero o Falso' : 'Opción Múltiple'}
                   </span>
                 </div>
 
                 <div className="flex items-center gap-3">
                   <div className="flex items-center gap-1">
-                    <span className="text-xs text-slate-400">Puntos:</span>
+                    <span className="text-xs text-[#bbc7c6]">Puntos:</span>
                     <input
                       type="number"
                       min={1}
                       max={100}
                       value={question.points}
                       onChange={e => updateQuestionPoints(qIdx, Number(e.target.value))}
-                      className="w-14 bg-slate-900 border border-slate-800 rounded-lg px-2 py-0.5 text-xs text-center text-indigo-300 font-mono font-bold outline-none"
+                      className="w-14 bg-[#011d1c] border border-white/15 rounded-md px-2 py-0.5 text-xs text-center text-[#fde9ff] font-mono font-medium outline-none"
                     />
                   </div>
 
@@ -517,7 +561,7 @@ export const ExamEditor: React.FC = () => {
                     type="button"
                     onClick={() => removeQuestion(qIdx)}
                     title="Eliminar Pregunta"
-                    className="p-1.5 rounded-lg text-slate-500 hover:text-rose-400 hover:bg-rose-500/10 transition"
+                    className="p-1.5 rounded-md text-[#707777] hover:text-rose-400 hover:bg-rose-500/10 transition"
                   >
                     <Trash2 className="w-4 h-4" />
                   </button>
@@ -526,7 +570,7 @@ export const ExamEditor: React.FC = () => {
 
               {/* Prompt Input */}
               <div>
-                <label className="block text-xs font-semibold text-slate-300 mb-1.5">
+                <label className="block text-xs uppercase tracking-[0.08em] font-medium text-[#edfffe] mb-1.5">
                   Enunciado de la Pregunta
                 </label>
                 <textarea
@@ -535,21 +579,21 @@ export const ExamEditor: React.FC = () => {
                   value={question.prompt}
                   onChange={e => updateQuestionPrompt(qIdx, e.target.value)}
                   placeholder="Ej: ¿Cuál es la principal ventaja de utilizar un token JWT frente a sesiones tradicionales con estado?"
-                  className="w-full bg-slate-900/90 border border-slate-800 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 rounded-xl px-4 py-2 text-xs text-slate-100 placeholder-slate-500 outline-none transition"
+                  className="w-full bg-[#011d1c] border border-white/15 focus:border-[#cbfffc] rounded-md px-4 py-2 text-xs text-white placeholder-[#707777] outline-none transition"
                 />
               </div>
 
               {/* Options Section */}
               <div className="space-y-2 pt-2">
                 <div className="flex items-center justify-between mb-1">
-                  <span className="text-[11px] font-semibold text-slate-400">
-                    Opciones (marca con el círculo la alternativa correcta que se guardará en la clave secreta):
+                  <span className="text-[11px] uppercase tracking-[0.06em] text-[#bbc7c6]">
+                    Opciones (marca la alternativa correcta que se resguardará en la clave secreta):
                   </span>
                   {question.type === 'single_choice' && (
                     <button
                       type="button"
                       onClick={() => addOption(qIdx)}
-                      className="text-[11px] text-indigo-400 hover:text-indigo-300 font-medium transition"
+                      className="text-[11px] uppercase tracking-[0.08em] text-[#cbfffc] hover:underline font-medium transition"
                     >
                       + Añadir opción
                     </button>
@@ -562,10 +606,10 @@ export const ExamEditor: React.FC = () => {
                   return (
                     <div
                       key={opt.id}
-                      className={`flex items-center gap-3 p-2 rounded-xl border transition ${
+                      className={`flex items-center gap-3 p-2.5 rounded-md border transition ${
                         isCorrect
-                          ? 'bg-emerald-500/10 border-emerald-500/40'
-                          : 'bg-slate-900/60 border-slate-800/80 hover:border-slate-700'
+                          ? 'bg-[#011d1c] border-[#00827c]'
+                          : 'bg-[#011d1c]/60 border-white/10 hover:border-white/20'
                       }`}
                     >
                       {/* Mark Correct Radio */}
@@ -573,13 +617,13 @@ export const ExamEditor: React.FC = () => {
                         type="button"
                         onClick={() => setCorrectOption(question.id, opt.id)}
                         title={isCorrect ? 'Opción Correcta Marcada' : 'Marcar como Respuesta Correcta'}
-                        className={`w-6 h-6 shrink-0 rounded-full flex items-center justify-center border transition ${
+                        className={`w-5 h-5 shrink-0 rounded-md flex items-center justify-center border transition ${
                           isCorrect
-                            ? 'bg-emerald-500 border-emerald-400 text-white'
-                            : 'border-slate-600 hover:border-indigo-400'
+                            ? 'bg-[#00827c] border-[#cbfffc] text-[#012624]'
+                            : 'border-white/20 hover:border-[#cbfffc]'
                         }`}
                       >
-                        {isCorrect && <CheckCircle2 className="w-4 h-4" />}
+                        {isCorrect && <CheckCircle2 className="w-3.5 h-3.5" />}
                       </button>
 
                       {/* Option text */}
@@ -589,7 +633,7 @@ export const ExamEditor: React.FC = () => {
                         value={opt.text}
                         onChange={e => updateOptionText(qIdx, optIdx, e.target.value)}
                         placeholder={`Opción ${optIdx + 1}`}
-                        className="flex-1 bg-transparent text-xs text-slate-100 placeholder-slate-600 outline-none"
+                        className="flex-1 bg-transparent text-xs text-white placeholder-[#707777] outline-none"
                       />
 
                       {/* Remove Option Button */}
@@ -597,7 +641,7 @@ export const ExamEditor: React.FC = () => {
                         <button
                           type="button"
                           onClick={() => removeOption(qIdx, optIdx)}
-                          className="p-1 text-slate-500 hover:text-rose-400 transition"
+                          className="p-1 text-[#707777] hover:text-rose-400 transition"
                         >
                           <Trash2 className="w-3.5 h-3.5" />
                         </button>
@@ -611,18 +655,18 @@ export const ExamEditor: React.FC = () => {
         </div>
 
         {/* Save Bar */}
-        <div className="sticky bottom-3 sm:bottom-4 z-30 p-3 sm:p-4 rounded-2xl glass-panel border border-slate-700 shadow-2xl flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+        <div className="sticky bottom-4 z-30 p-4 rounded-xl surface-deep border border-white/15 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
           <div className="flex items-center justify-between sm:justify-start gap-3">
-            <span className="text-xs text-slate-300">
-              {questions.length} {questions.length === 1 ? 'pregunta' : 'preguntas'} • {totalPoints} pts
+            <span className="text-xs uppercase tracking-[0.08em] text-[#edfffe] font-mono">
+              {questions.length} {questions.length === 1 ? 'pregunta' : 'preguntas'} • {totalPoints} Puntos Totales
             </span>
           </div>
 
-          <div className="flex items-center gap-2 sm:gap-3 w-full sm:w-auto">
+          <div className="flex items-center gap-3 w-full sm:w-auto">
             <button
               type="button"
               onClick={() => navigate('/teacher')}
-              className="flex-1 sm:flex-initial px-3 sm:px-4 py-2 text-xs font-semibold rounded-xl text-slate-400 hover:text-white hover:bg-slate-800 border border-slate-800 transition text-center"
+              className="flex-1 sm:flex-initial px-4 py-2 text-xs font-medium uppercase tracking-[0.08em] rounded-md text-[#bbc7c6] hover:text-white hover:bg-white/5 border border-white/10 transition text-center"
             >
               Cancelar
             </button>
@@ -630,9 +674,9 @@ export const ExamEditor: React.FC = () => {
             <button
               type="submit"
               disabled={saving}
-              className="flex-1 sm:flex-initial inline-flex items-center justify-center gap-2 px-4 sm:px-5 py-2 sm:py-2.5 rounded-xl bg-gradient-to-r from-indigo-600 to-indigo-500 hover:from-indigo-500 hover:to-indigo-400 text-white font-semibold text-xs shadow-lg shadow-indigo-600/30 transition disabled:opacity-50"
+              className="btn-aurora flex-1 sm:flex-initial inline-flex items-center justify-center gap-2 px-5 py-2.5 text-xs font-medium uppercase tracking-[0.08em] disabled:opacity-50"
             >
-              <Save className="w-4 h-4" />
+              <Save className="w-4 h-4 text-[#012624]" />
               <span>{saving ? 'Guardando...' : 'Guardar Evaluación'}</span>
             </button>
           </div>
@@ -644,6 +688,13 @@ export const ExamEditor: React.FC = () => {
         isOpen={isWordModalOpen}
         onClose={() => setIsWordModalOpen(false)}
         onImport={handleWordImport}
+      />
+
+      {/* AI Exam Generator Modal (Groq) */}
+      <AiExamGeneratorModal
+        isOpen={isAiModalOpen}
+        onClose={() => setIsAiModalOpen(false)}
+        onImport={handleAiImport}
       />
     </div>
   );
