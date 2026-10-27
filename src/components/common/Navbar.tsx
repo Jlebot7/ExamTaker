@@ -26,18 +26,18 @@ export const Navbar: React.FC = () => {
   const closeMenu = () => setMobileMenuOpen(false);
 
   return (
-    <header className="sticky top-0 z-40 w-full border-b border-white/10 bg-[#012624]/90 backdrop-blur-md">
-      <div className="max-w-[1440px] mx-auto px-4 sm:px-6 lg:px-8 h-20 flex items-center justify-between">
+    <header className="sticky top-0 z-40 w-full border-b border-white/10 bg-[#012624]/95 backdrop-blur-md">
+      <div className="max-w-[1440px] mx-auto px-4 sm:px-6 lg:px-8 min-h-[72px] h-[72px] flex items-center justify-between">
         {/* Brand */}
         <Link to="/" onClick={closeMenu} className="flex items-center gap-3 group shrink-0">
-          <div className="w-8 h-8 rounded-md bg-[linear-gradient(90deg,rgb(0,130,124)_0%,rgb(203,255,252)_100%)] flex items-center justify-center text-[#012624] font-bold text-xs">
+          <div className="w-8 h-8 rounded-[6px] bg-[linear-gradient(90deg,rgb(0,130,124)_0%,rgb(203,255,252)_100%)] flex items-center justify-center text-[#012624] font-bold text-xs shrink-0">
             ▲
           </div>
-          <div className="flex flex-col">
-            <span className="text-base sm:text-lg font-medium text-white tracking-[-0.03em] uppercase">
-              Auros
+          <div className="flex flex-col justify-center">
+            <span className="text-base sm:text-lg font-medium text-white tracking-[-0.03em] uppercase leading-tight">
+              Auros TestQ
             </span>
-            <span className="eyebrow-label text-[9px] text-[#edfffe] -mt-0.5 tracking-[0.14em]">
+            <span className="eyebrow-label text-[9px] text-[#edfffe] tracking-[0.14em] leading-tight">
               Abyssal Terminal
             </span>
           </div>
