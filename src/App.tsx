@@ -18,7 +18,7 @@ const TeacherRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => 
   if (loading) {
     return (
       <div className="min-h-[50vh] flex items-center justify-center">
-        <div className="w-8 h-8 border-2 border-indigo-500 border-t-transparent rounded-full animate-spin"></div>
+        <div className="w-8 h-8 border-2 border-[#00827c] border-t-transparent rounded-full animate-spin"></div>
       </div>
     );
   }
@@ -34,7 +34,7 @@ export function App() {
   return (
     <AuthProvider>
       <HashRouter>
-        <div className="min-h-screen flex flex-col bg-slate-950 text-slate-100 selection:bg-indigo-500 selection:text-white">
+        <div className="min-h-screen flex flex-col bg-[#012624] text-[#bbc7c6] selection:bg-[#00827c] selection:text-[#ffffff]">
           <Navbar />
           <main className="flex-1 flex flex-col">
             <Routes>
