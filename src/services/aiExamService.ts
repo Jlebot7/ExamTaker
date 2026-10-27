@@ -1,4 +1,4 @@
-// AI Exam Question Generator Service using Groq API (OpenAI-compatible) with fallback
+// AI Exam Question Generator Service using Groq API (OpenAI-compatible) with intelligent fallback
 import type { QuestionType } from '../types';
 
 export interface AiExamRequestParams {
@@ -9,6 +9,7 @@ export interface AiExamRequestParams {
   pointsPerQuestion: number;
   customInstructions?: string;
   apiKey?: string;
+  model?: string;
 }
 
 export interface GeneratedQuestionItem {
@@ -22,6 +23,9 @@ export interface GeneratedQuestionItem {
 }
 
 const GROQ_STORAGE_KEY = 'examtaker_groq_api_key';
+const GROQ_MODEL_KEY = 'examtaker_groq_model';
+
+export const DEFAULT_MODEL = 'openai/gpt-oss-120b';
 
 export const getStoredGroqKey = (): string => {
   return localStorage.getItem(GROQ_STORAGE_KEY) || (import.meta.env.VITE_GROQ_API_KEY as string) || '';
@@ -34,6 +38,48 @@ export const setStoredGroqKey = (key: string): void => {
     localStorage.removeItem(GROQ_STORAGE_KEY);
   }
 };
+
+export const getStoredGroqModel = (): string => {
+  return localStorage.getItem(GROQ_MODEL_KEY) || DEFAULT_MODEL;
+};
+
+export const setStoredGroqModel = (model: string): void => {
+  if (model.trim()) {
+    localStorage.setItem(GROQ_MODEL_KEY, model.trim());
+  } else {
+    localStorage.removeItem(GROQ_MODEL_KEY);
+  }
+};
+
+/**
+ * Fetches the list of active models accessible by this Groq API key
+ */
+export async function getAvailableGroqModels(apiKey: string): Promise<string[]> {
+  const cleanKey = apiKey.trim();
+  if (!cleanKey) return [];
+  try {
+    const res = await fetch('https://api.groq.com/openai/v1/models', {
+      headers: {
+        Authorization: `Bearer ${cleanKey}`,
+      },
+    });
+    if (!res.ok) return [];
+    const data = await res.json();
+    if (!Array.isArray(data?.data)) return [];
+
+    return data.data
+      .map((m: any) => m.id as string)
+      .filter((id: string) => 
+        !id.includes('whisper') && 
+        !id.includes('orpheus') && 
+        !id.includes('safeguard') && 
+        !id.includes('guard') &&
+        !id.includes('tts')
+      );
+  } catch {
+    return [];
+  }
+}
 
 /**
  * Generates exam questions using Groq API or smart offline heuristic generator
@@ -55,7 +101,7 @@ export async function generateExamQuestions(params: AiExamRequestParams): Promis
 }
 
 /**
- * Calls Groq chat completions endpoint with gpt-oss-120b and JSON mode
+ * Calls Groq chat completions endpoint with gpt-oss-120b and automatic compatibility cascade
  */
 async function generateWithGroq(
   params: AiExamRequestParams,
@@ -129,10 +175,42 @@ Y "correctOptionIds" debe ser ["tf_true"] o ["tf_false"].`;
       max_tokens: 4096,
     });
 
-  // Try gpt-oss-120b variants supported by Groq
-  const modelsToTry = ['openai/gpt-oss-120b', 'gpt-oss-120b'];
+  // Discover what models this key has permission to use
+  const activeModels = await getAvailableGroqModels(apiKey);
+  const preferredModel = (params.model || getStoredGroqModel() || DEFAULT_MODEL).trim();
+
+  // Build cascade list of models to try
+  let modelsToTry: string[] = [];
+
+  if (activeModels.length > 0) {
+    const directMatch = activeModels.find(m => m === preferredModel || m.endsWith(preferredModel));
+    const gpt120 = activeModels.find(m => m.includes('gpt-oss-120b') || m.includes('120b'));
+    const anyGpt = activeModels.find(m => m.includes('gpt-oss'));
+
+    modelsToTry = [
+      ...(directMatch ? [directMatch] : [preferredModel]),
+      ...(gpt120 && gpt120 !== directMatch ? [gpt120] : []),
+      ...(anyGpt && anyGpt !== directMatch && anyGpt !== gpt120 ? [anyGpt] : []),
+      ...activeModels.filter(m => m !== directMatch && m !== gpt120 && m !== anyGpt)
+    ];
+  } else {
+    modelsToTry = [
+      preferredModel,
+      'openai/gpt-oss-120b',
+      'gpt-oss-120b',
+      'openai/gpt-oss-20b',
+      'llama-3.1-8b-instant',
+      'llama-3.3-70b-versatile',
+      'qwen/qwen3.8-27b'
+    ];
+  }
+
+  // Deduplicate
+  modelsToTry = Array.from(new Set(modelsToTry));
+
   let lastError = '';
   let response: Response | null = null;
+  let usedModel = '';
 
   for (const modelId of modelsToTry) {
     try {
@@ -146,13 +224,15 @@ Y "correctOptionIds" debe ser ["tf_true"] o ["tf_false"].`;
       });
 
       if (response.ok) {
+        usedModel = modelId;
+        setStoredGroqModel(usedModel);
         break;
       }
 
       const errorJson = await response.json().catch(() => null);
       lastError = errorJson?.error?.message || response.statusText;
 
-      // If error is not model-related (e.g. 401 Unauthorized or 429 Rate Limit), don't retry other model IDs
+      // 401 Unauthorized or 429 Rate Limit shouldn't keep cycling models
       if (response.status === 401 || response.status === 429) {
         break;
       }
@@ -163,12 +243,15 @@ Y "correctOptionIds" debe ser ["tf_true"] o ["tf_false"].`;
 
   if (!response || !response.ok) {
     if (response?.status === 401) {
-      throw new Error('API Key de Groq inválida o no autorizada. Por favor revisa tu clave.');
+      throw new Error('API Key de Groq inválida o expirada. Por favor revisa tu clave en console.groq.com/keys.');
     }
     if (response?.status === 429) {
       throw new Error('Límite de tasa (Rate limit) de Groq alcanzado. Espera unos segundos e intenta nuevamente.');
     }
-    throw new Error(`Error en la API de Groq con el modelo gpt-oss-120b: ${lastError || 'No se pudo conectar'}`);
+    const modelInfo = activeModels.length > 0 
+      ? ` Modelos disponibles en tu cuenta: ${activeModels.join(', ')}` 
+      : '';
+    throw new Error(`Error en la API de Groq: ${lastError || 'No se pudo conectar.'}.${modelInfo}`);
   }
 
   const data = await response.json();
@@ -275,4 +358,3 @@ function generateLocally(params: AiExamRequestParams): GeneratedQuestionItem[] {
 
   return result;
 }
-
