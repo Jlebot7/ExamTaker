@@ -65,7 +65,7 @@ export const TeacherAuth: React.FC = () => {
             <div className="flex items-center justify-center gap-1.5 mb-1">
               <span className="w-1.5 h-1.5 rounded-full bg-[#00827c]"></span>
               <span className="text-[10px] font-mono tracking-[0.14em] uppercase text-[#edfffe]/80 font-medium">
-                TERMINAL DOCENTE
+                AUROS TESTQ // TERMINAL DOCENTE
               </span>
             </div>
             <h1 className="text-2xl font-medium text-white tracking-tight">
