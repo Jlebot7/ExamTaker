@@ -1,13 +1,12 @@
 import React, { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, Link } from 'react-router-dom';
 import { 
-  ShieldCheck, 
-  Sparkles, 
   ArrowRight, 
+  Eye, 
   Clock, 
-  Lock, 
-  Eye
+  Bot 
 } from 'lucide-react';
+import { ParticleSphere } from '../components/common/ParticleSphere';
 
 export const LandingPage: React.FC = () => {
   const [quickCode, setQuickCode] = useState('');
@@ -23,140 +22,269 @@ export const LandingPage: React.FC = () => {
   };
 
   return (
-    <div className="flex-1 flex flex-col">
+    <div className="flex-1 flex flex-col bg-[#012624] text-[#bbc7c6]">
       {/* Hero Section */}
-      <section className="relative overflow-hidden py-16 sm:py-24">
-        {/* Glow ambient background elements */}
-        <div className="absolute top-1/4 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[350px] bg-indigo-600/15 blur-[120px] rounded-full pointer-events-none -z-10"></div>
-        <div className="absolute top-1/3 left-1/3 w-[300px] h-[300px] bg-purple-600/10 blur-[100px] rounded-full pointer-events-none -z-10"></div>
+      <section className="relative min-h-[calc(100vh-5rem)] flex items-center justify-center overflow-hidden py-16 sm:py-24">
+        {/* Background 3D Particle Sphere */}
+        <div className="absolute inset-0 flex items-center justify-center pointer-events-none -z-0">
+          <ParticleSphere className="w-[650px] h-[650px] sm:w-[850px] sm:h-[850px] max-w-full" />
+        </div>
 
-        <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
-          {/* Badge */}
-          <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-indigo-500/10 border border-indigo-500/30 text-indigo-400 text-xs font-semibold mb-6 animate-soft-pulse">
-            <Sparkles className="w-3.5 h-3.5" />
-            <span>Arquitectura Serverless • Supervisión en Tiempo Real</span>
+        <div className="relative z-10 max-w-[1440px] mx-auto px-4 sm:px-6 lg:px-8 text-center flex flex-col items-center">
+          {/* Eyebrow Label */}
+          <div className="eyebrow-label mb-6 px-3.5 py-1 rounded-md bg-[#003734] border border-white/10 text-[#edfffe] flex items-center gap-2">
+            <span className="w-1.5 h-1.5 rounded-full bg-[#cbfffc] animate-pulse"></span>
+            <span>Auros • Arquitectura Abisal de Evaluación Continua</span>
           </div>
 
-          {/* Heading */}
-          <h1 className="text-4xl sm:text-6xl lg:text-7xl font-black tracking-tight text-white max-w-4xl mx-auto leading-[1.1]">
-            Evaluaciones en línea con{' '}
-            <span className="bg-gradient-to-r from-indigo-400 via-purple-400 to-pink-400 bg-clip-text text-transparent">
-              integridad absoluta
-            </span>
+          {/* Hero Headline (61-96px Matter 500, line-height 1.0, tracking -0.04em) */}
+          <h1 className="text-4xl sm:text-6xl md:text-7xl lg:text-[84px] font-medium text-white tracking-[-0.04em] leading-[1.0] max-w-5xl">
+            Integridad absoluta y generación inteligente
           </h1>
 
           {/* Subheading */}
-          <p className="mt-6 text-base sm:text-lg text-slate-400 max-w-2xl mx-auto leading-relaxed">
-            Plataforma estilo TestPortal de alto rendimiento con sincronización continua en Firebase, reloj de servidor inalterable y detección proactiva de sospechas.
+          <p className="mt-6 text-sm sm:text-base md:text-lg text-[#bbc7c6] max-w-2xl leading-[1.4]">
+            Terminal de evaluaciones segura con sincronización en tiempo real, supervisión de integridad activa y creación instantánea de exámenes asistida por IA.
           </p>
 
-          {/* Action Boxes */}
-          <div className="mt-10 max-w-2xl mx-auto grid grid-cols-1 sm:grid-cols-2 gap-4 text-left">
-            {/* Student Quick Access Card */}
-            <div className="glass-card p-6 rounded-2xl border border-indigo-500/30 glow-indigo relative overflow-hidden group">
-              <div className="flex items-center gap-3 mb-3">
-                <div className="w-10 h-10 rounded-xl bg-indigo-500/20 text-indigo-400 flex items-center justify-center font-bold">
-                  <Sparkles className="w-5 h-5" />
-                </div>
-                <div>
-                  <h2 className="text-base font-bold text-white">¿Eres Estudiante?</h2>
-                  <p className="text-xs text-slate-400">Ingresa con el código de examen</p>
-                </div>
+          {/* Action Cards Grid */}
+          <div className="mt-12 w-full max-w-2xl grid grid-cols-1 sm:grid-cols-2 gap-5 text-left">
+            {/* Student Card */}
+            <div className="surface-card p-6 sm:p-7 rounded-2xl border border-white/10 flex flex-col justify-between">
+              <div>
+                <span className="eyebrow-label text-[10px] text-[#edfffe] block mb-1">Portal Estudiante</span>
+                <h2 className="text-lg font-medium text-white tracking-tight">Ingresar a Evaluación</h2>
+                <p className="text-xs text-[#bbc7c6] mt-1">Digita el código o PIN provisto por el docente.</p>
               </div>
 
-              <form onSubmit={handleQuickEntry} className="mt-4 space-y-3">
+              <form onSubmit={handleQuickEntry} className="mt-5 space-y-3">
                 <input
                   type="text"
                   value={quickCode}
                   onChange={e => setQuickCode(e.target.value.toUpperCase())}
                   placeholder="Ej: DEMO-101"
-                  className="w-full bg-slate-900/90 border border-slate-700 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 rounded-xl px-3.5 py-2 text-xs font-mono text-slate-100 placeholder:font-sans placeholder-slate-500 outline-none uppercase"
+                  className="w-full bg-[#011d1c] border border-white/15 focus:border-[#cbfffc] rounded-md px-3.5 py-2.5 text-xs font-mono text-white placeholder-[#707777] uppercase outline-none transition"
                 />
                 <button
                   type="submit"
-                  className="w-full bg-indigo-600 hover:bg-indigo-500 text-white font-semibold py-2 px-4 rounded-xl text-xs flex items-center justify-center gap-1.5 transition shadow-md shadow-indigo-600/30"
+                  className="btn-aurora w-full py-2.5 px-4 flex items-center justify-center gap-2 text-xs font-medium uppercase"
                 >
-                  <span>Ingresar a la Prueba</span>
-                  <ArrowRight className="w-3.5 h-3.5" />
+                  <span>Iniciar Examen</span>
+                  <ArrowRight className="w-3.5 h-3.5 text-[#012624]" />
                 </button>
               </form>
             </div>
 
-            {/* Teacher Portal Card */}
-            <div className="glass-card p-6 rounded-2xl border border-slate-800 hover:border-slate-700 transition relative overflow-hidden group">
-              <div className="flex items-center gap-3 mb-3">
-                <div className="w-10 h-10 rounded-xl bg-purple-500/20 text-purple-400 flex items-center justify-center font-bold">
-                  <ShieldCheck className="w-5 h-5" />
-                </div>
-                <div>
-                  <h2 className="text-base font-bold text-white">¿Eres Docente?</h2>
-                  <p className="text-xs text-slate-400">Crea exámenes y supervisa envíos</p>
-                </div>
+            {/* Teacher Card */}
+            <div className="surface-card p-6 sm:p-7 rounded-2xl border border-white/10 flex flex-col justify-between">
+              <div>
+                <span className="eyebrow-label text-[10px] text-[#edfffe] block mb-1">Terminal Docente</span>
+                <h2 className="text-lg font-medium text-white tracking-tight">Panel de Control</h2>
+                <p className="text-xs text-[#bbc7c6] mt-1">Crea evaluaciones, genera con IA y supervisa en vivo.</p>
               </div>
 
-              <div className="mt-6 flex flex-col justify-end h-24">
+              <div className="mt-6 flex flex-col justify-end space-y-2.5">
                 <button
                   type="button"
                   onClick={() => navigate('/teacher/login')}
-                  className="w-full bg-slate-800 hover:bg-slate-700 text-slate-100 font-semibold py-2 px-4 rounded-xl text-xs flex items-center justify-center gap-1.5 transition border border-slate-700"
+                  className="btn-action w-full py-2.5 px-4 flex items-center justify-center gap-2 text-xs font-medium uppercase tracking-[0.08em]"
                 >
-                  <span>Acceso al Dashboard</span>
-                  <ArrowRight className="w-3.5 h-3.5" />
+                  <span>Acceso Docente</span>
+                  <span className="btn-arrow w-5 h-5 text-[11px] bg-transparent border-0">↗</span>
                 </button>
+                <Link
+                  to="/teacher/exam/new"
+                  className="text-[11px] text-[#cbfffc] text-center hover:underline uppercase tracking-[0.08em]"
+                >
+                  Crear nuevo examen con IA →
+                </Link>
               </div>
             </div>
           </div>
         </div>
       </section>
 
-      {/* Features Grid */}
-      <section className="py-16 border-t border-slate-900 bg-slate-950/50">
-        <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="text-center max-w-2xl mx-auto mb-12">
-            <h2 className="text-2xl sm:text-3xl font-bold text-white">
-              Garantía de Integridad y Rendimiento
-            </h2>
-            <p className="text-sm text-slate-400 mt-2">
-              Diseñado con los estándares más estrictos de seguridad serverless y supervisión activa.
+      {/* Statistics Block (Auros Signature: Lavender Phosphor numbers at 86px) */}
+      <section className="py-20 border-t border-b border-white/10 bg-[#011d1c]">
+        <div className="max-w-[1440px] mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-10 sm:gap-6 text-center">
+            {/* Stat 1 */}
+            <div className="flex flex-col items-center">
+              <span className="text-5xl sm:text-6xl md:text-7xl font-medium text-[#fde9ff] tracking-[-0.04em] leading-none font-mono">
+                0%
+              </span>
+              <span className="eyebrow-label text-xs sm:text-sm text-[#edfffe] mt-3">
+                Zero Answer-Key Leak
+              </span>
+              <p className="text-xs text-[#707777] mt-1 max-w-xs">
+                Claves secretas aisladas estrictamente en nodos inaccesibles para el estudiante.
+              </p>
+            </div>
+
+            {/* Stat 2 */}
+            <div className="flex flex-col items-center">
+              <span className="text-5xl sm:text-6xl md:text-7xl font-medium text-[#fde9ff] tracking-[-0.04em] leading-none font-mono">
+                60fps
+              </span>
+              <span className="eyebrow-label text-xs sm:text-sm text-[#edfffe] mt-3">
+                Monitoreo Anti-Trampa
+              </span>
+              <p className="text-xs text-[#707777] mt-1 max-w-xs">
+                Supervisión de pérdida de foco, cambio de ventana y herramientas de inspección.
+              </p>
+            </div>
+
+            {/* Stat 3 */}
+            <div className="flex flex-col items-center">
+              <span className="text-5xl sm:text-6xl md:text-7xl font-medium text-[#fde9ff] tracking-[-0.04em] leading-none font-mono">
+                100%
+              </span>
+              <span className="eyebrow-label text-xs sm:text-sm text-[#edfffe] mt-3">
+                Generación IA Groq
+              </span>
+              <p className="text-xs text-[#707777] mt-1 max-w-xs">
+                Preguntas académicas estructuradas generadas en milisegundos con LLMs avanzados.
+              </p>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* Explore & Features Section (Asymmetric Two-Column Layout) */}
+      <section className="py-24 max-w-[1440px] mx-auto px-4 sm:px-6 lg:px-8 w-full">
+        <div className="mb-14">
+          <span className="eyebrow-label text-xs text-[#edfffe] block mb-2">Auros • Capacidades de la Plataforma</span>
+          <h2 className="text-3xl sm:text-4xl md:text-5xl font-medium text-white tracking-[-0.03em] leading-[1.0] max-w-3xl">
+            Diseñado como un instrumento de precisión para la docencia
+          </h2>
+        </div>
+
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
+          {/* Left Column: Stacked Feature Cards */}
+          <div className="lg:col-span-7 space-y-6">
+            {/* Feature 1: AI Generator */}
+            <div className="surface-card p-8 rounded-2xl border border-white/10 flex flex-col justify-between group">
+              <div className="flex items-start justify-between gap-4">
+                <div>
+                  <div className="w-8 h-8 rounded-md bg-[#011d1c] text-[#cbfffc] flex items-center justify-center mb-4">
+                    <Bot className="w-4 h-4" />
+                  </div>
+                  <h3 className="text-2xl font-medium text-white tracking-tight">
+                    Generación de Tests con IA (Groq)
+                  </h3>
+                  <p className="text-sm text-[#bbc7c6] mt-2.5 leading-[1.4]">
+                    Escribe un tema de cualquier materia y define la cantidad de preguntas, tipo (opción múltiple o V/F) y complejidad. La IA estructura automáticamente el cuestionario con opciones, clave de respuesta y retroalimentación pedagógica.
+                  </p>
+                </div>
+                <Link to="/teacher/exam/new" className="btn-arrow shrink-0" title="Probar generador">
+                  ↗
+                </Link>
+              </div>
+            </div>
+
+            {/* Feature 2: Anti-Cheat Engine */}
+            <div className="surface-card p-8 rounded-2xl border border-white/10 flex flex-col justify-between group">
+              <div className="flex items-start justify-between gap-4">
+                <div>
+                  <div className="w-8 h-8 rounded-md bg-[#011d1c] text-[#edfffe] flex items-center justify-center mb-4">
+                    <Eye className="w-4 h-4" />
+                  </div>
+                  <h3 className="text-2xl font-medium text-white tracking-tight">
+                    Supervisión Anti-Trampa Sincronizada
+                  </h3>
+                  <p className="text-sm text-[#bbc7c6] mt-2.5 leading-[1.4]">
+                    Detección instantánea de pérdida de foco, cambio de pestañas, menú contextual y atajos de teclado. Cada evento se registra cronológicamente en la bitácora de auditoría para el docente.
+                  </p>
+                </div>
+                <Link to="/teacher" className="btn-arrow shrink-0" title="Ver auditoría">
+                  ↗
+                </Link>
+              </div>
+            </div>
+
+            {/* Feature 3: Server Timer */}
+            <div className="surface-card p-8 rounded-2xl border border-white/10 flex flex-col justify-between group">
+              <div className="flex items-start justify-between gap-4">
+                <div>
+                  <div className="w-8 h-8 rounded-md bg-[#011d1c] text-[#fde9ff] flex items-center justify-center mb-4">
+                    <Clock className="w-4 h-4" />
+                  </div>
+                  <h3 className="text-2xl font-medium text-white tracking-tight">
+                    Temporizador Inalterable en la Nube
+                  </h3>
+                  <p className="text-sm text-[#bbc7c6] mt-2.5 leading-[1.4]">
+                    El tiempo de evaluación se sincroniza con la hora de los servidores en la nube, evitando manipulaciones en el reloj local del dispositivo del estudiante y ejecutando el auto-envío al expirar.
+                  </p>
+                </div>
+                <Link to="/student" className="btn-arrow shrink-0" title="Entrar a examen">
+                  ↗
+                </Link>
+              </div>
+            </div>
+          </div>
+
+          {/* Right Column: Geometric Molecular Diagram Illustration */}
+          <div className="lg:col-span-5 surface-deep p-8 rounded-2xl border border-white/10 flex flex-col items-center justify-center text-center min-h-[460px] relative overflow-hidden">
+            {/* SVG Molecular Diagram */}
+            <svg className="w-full max-w-[320px] h-[320px] text-white/30" viewBox="0 0 300 300" fill="none">
+              {/* Connector lines */}
+              <line x1="150" y1="50" x2="80" y2="120" stroke="currentColor" strokeWidth="1" strokeDasharray="4 4" />
+              <line x1="150" y1="50" x2="220" y2="120" stroke="currentColor" strokeWidth="1" />
+              <line x1="80" y1="120" x2="80" y2="200" stroke="currentColor" strokeWidth="1" />
+              <line x1="220" y1="120" x2="220" y2="200" stroke="currentColor" strokeWidth="1" strokeDasharray="4 4" />
+              <line x1="80" y1="200" x2="150" y2="250" stroke="currentColor" strokeWidth="1" />
+              <line x1="220" y1="200" x2="150" y2="250" stroke="currentColor" strokeWidth="1" />
+              <line x1="150" y1="50" x2="150" y2="250" stroke="rgba(203, 255, 252, 0.4)" strokeWidth="1.5" />
+              <line x1="80" y1="120" x2="220" y2="200" stroke="rgba(0, 130, 124, 0.3)" strokeWidth="1" />
+
+              {/* Molecular Circles */}
+              <circle cx="150" cy="50" r="14" fill="#003734" stroke="#cbfffc" strokeWidth="2" />
+              <circle cx="80" cy="120" r="10" fill="#011d1c" stroke="#ffffff" strokeWidth="1.5" />
+              <circle cx="220" cy="120" r="10" fill="#011d1c" stroke="#ffffff" strokeWidth="1.5" />
+              <circle cx="80" cy="200" r="10" fill="#011d1c" stroke="#ffffff" strokeWidth="1.5" />
+              <circle cx="220" cy="200" r="10" fill="#011d1c" stroke="#ffffff" strokeWidth="1.5" />
+              <circle cx="150" cy="250" r="16" fill="#003734" stroke="#fde9ff" strokeWidth="2" />
+              <circle cx="150" cy="150" r="22" fill="#003734" stroke="#00827c" strokeWidth="2" />
+
+              {/* Inner glowing dots */}
+              <circle cx="150" cy="150" r="5" fill="#cbfffc" />
+              <circle cx="150" cy="50" r="3" fill="#ffffff" />
+              <circle cx="150" cy="250" r="4" fill="#fde9ff" />
+            </svg>
+
+            <span className="eyebrow-label text-xs text-[#edfffe] mt-4">Arquitectura Concurrente Zero-Leak</span>
+            <p className="text-xs text-[#bbc7c6] mt-2 max-w-xs leading-relaxed">
+              Mapeo de datos desacoplado entre el canvas del estudiante y la clave criptográfica del docente en Cloud Firestore.
             </p>
           </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            {/* Feature 1 */}
-            <div className="glass-card p-6 rounded-2xl border border-slate-800/80">
-              <div className="w-10 h-10 rounded-xl bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 flex items-center justify-center mb-4">
-                <Eye className="w-5 h-5" />
-              </div>
-              <h3 className="text-base font-bold text-white mb-2">Motor Anti-Trampa</h3>
-              <p className="text-xs text-slate-400 leading-relaxed">
-                Supervisión proactiva de visibilidad, desenfoque de ventana (blur), menús contextuales y atajos de teclado con registro inmediato de infracciones en el panel docente.
-              </p>
-            </div>
-
-            {/* Feature 2 */}
-            <div className="glass-card p-6 rounded-2xl border border-slate-800/80">
-              <div className="w-10 h-10 rounded-xl bg-indigo-500/10 border border-indigo-500/30 text-indigo-400 flex items-center justify-center mb-4">
-                <Lock className="w-5 h-5" />
-              </div>
-              <h3 className="text-base font-bold text-white mb-2">Zero Answer-Key Leak</h3>
-              <p className="text-xs text-slate-400 leading-relaxed">
-                Aislamiento estricto de la matriz de respuestas correctas en nodos protegidos por reglas de seguridad. El estudiante nunca recibe la clave en su memoria o red.
-              </p>
-            </div>
-
-            {/* Feature 3 */}
-            <div className="glass-card p-6 rounded-2xl border border-slate-800/80">
-              <div className="w-10 h-10 rounded-xl bg-purple-500/10 border border-purple-500/30 text-purple-400 flex items-center justify-center mb-4">
-                <Clock className="w-5 h-5" />
-              </div>
-              <h3 className="text-base font-bold text-white mb-2">Reloj Sincronizado</h3>
-              <p className="text-xs text-slate-400 leading-relaxed">
-                Cálculo de tiempo restante atado a la hora del servidor con <code className="text-indigo-400 font-mono text-[11px]">.info/serverTimeOffset</code> para anular cualquier intento de manipulación del reloj local.
-              </p>
-            </div>
-          </div>
         </div>
       </section>
+
+      {/* Recessed Footer (Auros: Liquid Deep #011d1c with 120px padding) */}
+      <footer className="bg-[#011d1c] py-[120px] border-t border-white/10 text-center">
+        <div className="max-w-[1440px] mx-auto px-4 sm:px-6 lg:px-8 flex flex-col items-center">
+          <div className="w-10 h-10 rounded-md bg-[linear-gradient(90deg,rgb(0,130,124)_0%,rgb(203,255,252)_100%)] flex items-center justify-center text-[#012624] font-bold text-sm mb-4">
+            ▲
+          </div>
+          <span className="text-lg font-medium text-white tracking-[-0.03em] uppercase">
+            Auros ExamTaker
+          </span>
+          <span className="eyebrow-label text-[10px] text-[#edfffe] mt-1 tracking-[0.15em]">
+            Abyssal Terminal with Bioluminescent Data Orbs
+          </span>
+
+          <div className="mt-8 flex flex-wrap items-center justify-center gap-6 text-xs text-[#bbc7c6] uppercase tracking-[0.08em]">
+            <Link to="/" className="hover:text-white transition">Inicio</Link>
+            <Link to="/student" className="hover:text-white transition">Portal Estudiante</Link>
+            <Link to="/teacher" className="hover:text-white transition">Gestión Docente</Link>
+            <Link to="/teacher/exam/new" className="hover:text-white transition">Crear con IA</Link>
+          </div>
+
+          <p className="mt-10 text-[11px] text-[#707777] font-mono">
+            © 2026 Auros ExamTaker. Sistema de Evaluación Continua.
+          </p>
+        </div>
+      </footer>
     </div>
   );
 };
