@@ -55,7 +55,7 @@ export async function generateExamQuestions(params: AiExamRequestParams): Promis
 }
 
 /**
- * Calls Groq chat completions endpoint with llama-3.3-70b-versatile and JSON mode
+ * Calls Groq chat completions endpoint with gpt-oss-120b and JSON mode
  */
 async function generateWithGroq(
   params: AiExamRequestParams,
@@ -110,14 +110,9 @@ Para preguntas de Verdadero/Falso, el array "options" DEBE contener exactamente:
 ]
 Y "correctOptionIds" debe ser ["tf_true"] o ["tf_false"].`;
 
-  const response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      Authorization: `Bearer ${apiKey}`,
-    },
-    body: JSON.stringify({
-      model: 'llama-3.3-70b-versatile',
+  const requestBody = (modelId: string) =>
+    JSON.stringify({
+      model: modelId,
       messages: [
         {
           role: 'system',
@@ -132,25 +127,48 @@ Y "correctOptionIds" debe ser ["tf_true"] o ["tf_false"].`;
       response_format: { type: 'json_object' },
       temperature: 0.25,
       max_tokens: 4096,
-    }),
-  });
+    });
 
-  if (!response.ok) {
-    let errorDetail = '';
+  // Try gpt-oss-120b variants supported by Groq
+  const modelsToTry = ['openai/gpt-oss-120b', 'gpt-oss-120b'];
+  let lastError = '';
+  let response: Response | null = null;
+
+  for (const modelId of modelsToTry) {
     try {
-      const errorJson = await response.json();
-      errorDetail = errorJson?.error?.message || response.statusText;
-    } catch {
-      errorDetail = response.statusText;
-    }
+      response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${apiKey}`,
+        },
+        body: requestBody(modelId),
+      });
 
-    if (response.status === 401) {
+      if (response.ok) {
+        break;
+      }
+
+      const errorJson = await response.json().catch(() => null);
+      lastError = errorJson?.error?.message || response.statusText;
+
+      // If error is not model-related (e.g. 401 Unauthorized or 429 Rate Limit), don't retry other model IDs
+      if (response.status === 401 || response.status === 429) {
+        break;
+      }
+    } catch (fetchErr: unknown) {
+      lastError = fetchErr instanceof Error ? fetchErr.message : String(fetchErr);
+    }
+  }
+
+  if (!response || !response.ok) {
+    if (response?.status === 401) {
       throw new Error('API Key de Groq inválida o no autorizada. Por favor revisa tu clave.');
     }
-    if (response.status === 429) {
+    if (response?.status === 429) {
       throw new Error('Límite de tasa (Rate limit) de Groq alcanzado. Espera unos segundos e intenta nuevamente.');
     }
-    throw new Error(`Error en la API de Groq (${response.status}): ${errorDetail}`);
+    throw new Error(`Error en la API de Groq con el modelo gpt-oss-120b: ${lastError || 'No se pudo conectar'}`);
   }
 
   const data = await response.json();
