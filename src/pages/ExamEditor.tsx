@@ -10,7 +10,8 @@ import {
   ShieldAlert, 
   FileText, 
   AlertCircle,
-  Sparkles
+  Sparkles,
+  Shuffle
 } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import { examService } from '../services/examService';
@@ -33,6 +34,7 @@ export const ExamEditor: React.FC = () => {
   const [durationMinutes, setDurationMinutes] = useState(15);
   const [maxViolations, setMaxViolations] = useState(3);
   const [isPublished, setIsPublished] = useState(true);
+  const [randomizeQuestions, setRandomizeQuestions] = useState(true);
 
   // Questions and Correct Answer Keys (default 4 options)
   const [questions, setQuestions] = useState<Question[]>([
@@ -77,6 +79,7 @@ export const ExamEditor: React.FC = () => {
         setDurationMinutes(exam.durationMinutes);
         setMaxViolations(exam.maxViolations || 3);
         setIsPublished(exam.isPublished);
+        setRandomizeQuestions(exam.randomizeQuestions !== false);
         setQuestions(exam.questions || []);
 
         // Load isolated keys
@@ -307,6 +310,7 @@ export const ExamEditor: React.FC = () => {
             durationMinutes: Number(durationMinutes),
             maxViolations: Number(maxViolations),
             isPublished,
+            randomizeQuestions,
           },
           questions,
           correctAnswers
@@ -319,6 +323,7 @@ export const ExamEditor: React.FC = () => {
             durationMinutes: Number(durationMinutes),
             maxViolations: Number(maxViolations),
             isPublished,
+            randomizeQuestions,
             createdBy: user?.uid || 'teacher_demo_uid',
             createdByName: user?.displayName || 'Docente',
             questions,
@@ -474,6 +479,31 @@ export const ExamEditor: React.FC = () => {
               </button>
               <span className="text-[10px] text-[#707777] mt-1 block">Acceso disponible con PIN</span>
             </div>
+          </div>
+
+          {/* Randomize Questions Switch */}
+          <div className="pt-4 border-t border-white/8 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+            <div>
+              <span className="text-xs uppercase tracking-[0.08em] font-medium text-white flex items-center gap-1.5">
+                <Shuffle className="w-3.5 h-3.5 text-[#00827c]" />
+                <span>Aleatorizar Orden de Preguntas (Anti-Copia en Equipos)</span>
+              </span>
+              <p className="text-[11px] text-[#bbc7c6] mt-0.5">
+                Cada estudiante recibirá las preguntas en una secuencia completamente aleatoria y única en su pantalla.
+              </p>
+            </div>
+            <button
+              type="button"
+              onClick={() => setRandomizeQuestions(!randomizeQuestions)}
+              className={`px-3.5 py-2 rounded-[6px] border text-xs font-medium uppercase tracking-wider flex items-center gap-2 transition shrink-0 ${
+                randomizeQuestions
+                  ? 'surface-deep border-[#00827c] text-[#edfffe]'
+                  : 'surface-deep border-white/10 text-[#707777]'
+              }`}
+            >
+              <span className={`w-2 h-2 rounded-full ${randomizeQuestions ? 'bg-[#cbfffc] animate-pulse' : 'bg-slate-600'}`}></span>
+              <span>{randomizeQuestions ? 'Aleatorio Activado' : 'Orden Fijo'}</span>
+            </button>
           </div>
         </div>
 
