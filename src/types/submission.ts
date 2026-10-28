@@ -15,6 +15,7 @@ export interface Submission {
   violationCount: number;
   finalScore: number | null;
   maxScore: number | null;
+  questionOrder?: string[]; // Orden aleatorizado de question IDs asignado a este estudiante
 }
 
 export interface StudentSession {
