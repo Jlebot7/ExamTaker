@@ -3,8 +3,8 @@ import {
   doc, 
   setDoc, 
   getDoc, 
-  getDocs,
-  deleteDoc,
+  getDocs, 
+  deleteDoc, 
   updateDoc, 
   onSnapshot 
 } from 'firebase/firestore';
@@ -19,13 +19,14 @@ import type {
 import { 
   getMockSubmissions, 
   saveMockSubmission, 
-  deleteMockSubmission,
-  resetAllMockSubmissions,
+  deleteMockSubmission, 
+  resetAllMockSubmissions, 
   getMockLogs, 
-  addMockLog,
+  addMockLog, 
   getMockExamKey 
 } from './mockStorage';
 import { examService } from './examService';
+import { shuffleArray } from '../utils/shuffle';
 
 let serverTimeOffset = 0;
 
@@ -39,13 +40,21 @@ export const getEstimatedServerTime = (): number => {
 export const studentService = {
   /**
    * Initializes or returns existing student submission session in Cloud Firestore.
+   * If questionIds are provided, generates a deterministic randomized question order for this student.
    */
   async startOrGetSubmission(
     examId: string,
     studentUid: string,
     studentName: string,
-    studentCode: string
+    studentCode: string,
+    questionIds?: string[],
+    shouldRandomize: boolean = true
   ): Promise<Submission> {
+    const generateOrder = () => {
+      if (!questionIds || questionIds.length === 0) return [];
+      return shouldRandomize ? shuffleArray(questionIds) : [...questionIds];
+    };
+
     if (isFirebaseConfigured) {
       const subRef = doc(db, 'exams', examId, 'submissions', studentUid);
       const snap = await getDoc(subRef);
@@ -55,6 +64,41 @@ export const studentService = {
         if (data.startedAt) {
           // Adjust client-server skew if available
           serverTimeOffset = 0;
+        }
+
+        // If existing submission doesn't have questionOrder yet but questions are provided, generate & persist
+        if ((!data.questionOrder || data.questionOrder.length === 0) && questionIds && questionIds.length > 0) {
+          const newOrder = generateOrder();
+          data.questionOrder = newOrder;
+          await updateDoc(subRef, { questionOrder: newOrder });
+        }
+
+        return data;
+      }
+
+      const initialSubmission: Submission = {
+        studentUid,
+        studentName,
+        studentCode,
+        startedAt: Date.now(),
+        submittedAt: null,
+        status: 'in_progress',
+        answers: {},
+        violationCount: 0,
+        finalScore: null,
+        maxScore: null,
+        questionOrder: generateOrder(),
+      };
+
+      await setDoc(subRef, initialSubmission);
+      return initialSubmission;
+    } else {
+      const subs = getMockSubmissions(examId);
+      if (subs[studentUid]) {
+        const data = subs[studentUid];
+        if ((!data.questionOrder || data.questionOrder.length === 0) && questionIds && questionIds.length > 0) {
+          data.questionOrder = generateOrder();
+          saveMockSubmission(examId, data);
         }
         return data;
       }
@@ -70,27 +114,7 @@ export const studentService = {
         violationCount: 0,
         finalScore: null,
         maxScore: null,
-      };
-
-      await setDoc(subRef, initialSubmission);
-      return initialSubmission;
-    } else {
-      const subs = getMockSubmissions(examId);
-      if (subs[studentUid]) {
-        return subs[studentUid];
-      }
-
-      const initialSubmission: Submission = {
-        studentUid,
-        studentName,
-        studentCode,
-        startedAt: Date.now(),
-        submittedAt: null,
-        status: 'in_progress',
-        answers: {},
-        violationCount: 0,
-        finalScore: null,
-        maxScore: null,
+        questionOrder: generateOrder(),
       };
 
       saveMockSubmission(examId, initialSubmission);
@@ -399,4 +423,3 @@ export const studentService = {
     }
   },
 };
-
