@@ -25,6 +25,7 @@ export interface Exam {
   createdByName?: string;
   questions: Question[];
   totalPoints: number;
+  randomizeQuestions?: boolean; // Si es true (por defecto), cada estudiante recibe las preguntas en orden aleatorio único
 }
 
 // Clave secreta almacenada de forma aislada en /exam_keys/{examId}
