@@ -87,12 +87,14 @@ export const StudentEntry: React.FC = () => {
       // 1. Sign in anonymously via Firebase Auth
       const studentUid = await loginStudent(studentName.trim(), studentCode.trim());
 
-      // 2. Initialize or recover submission session in Realtime Database
+      // 2. Initialize or recover submission session in Cloud Firestore
       const submission = await studentService.startOrGetSubmission(
         examPreview.id,
         studentUid,
         studentName.trim(),
-        studentCode.trim()
+        studentCode.trim(),
+        examPreview.questions?.map(q => q.id) || [],
+        examPreview.randomizeQuestions !== false
       );
 
       // Check if already finished
