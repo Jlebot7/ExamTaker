@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { 
   Clock, 
@@ -55,7 +55,9 @@ export const StudentExam: React.FC = () => {
           examId,
           user.uid,
           user.displayName || 'Estudiante',
-          user.studentCode || ''
+          user.studentCode || '',
+          fetchedExam.questions?.map(q => q.id) || [],
+          fetchedExam.randomizeQuestions !== false
         );
 
         if (currentSub.status !== 'in_progress') {
@@ -175,8 +177,29 @@ export const StudentExam: React.FC = () => {
     );
   }
 
-  const currentQ = exam.questions[currentQuestionIndex];
-  const totalQuestions = exam.questions.length;
+  // Order questions according to this student's persistent randomized sequence
+  const orderedQuestions = useMemo(() => {
+    if (!exam?.questions) return [];
+    if (!submission?.questionOrder || submission.questionOrder.length === 0) {
+      return exam.questions;
+    }
+    const qMap = new Map(exam.questions.map(q => [q.id, q]));
+    const result: typeof exam.questions = [];
+    for (const qId of submission.questionOrder) {
+      const q = qMap.get(qId);
+      if (q) {
+        result.push(q);
+        qMap.delete(qId);
+      }
+    }
+    for (const remaining of qMap.values()) {
+      result.push(remaining);
+    }
+    return result;
+  }, [exam?.questions, submission?.questionOrder]);
+
+  const currentQ = orderedQuestions[currentQuestionIndex];
+  const totalQuestions = orderedQuestions.length;
   const answeredCount = Object.keys(answers).length;
 
   return (
@@ -273,7 +296,7 @@ export const StudentExam: React.FC = () => {
           </span>
         </div>
         <div className="flex items-center gap-1.5 overflow-x-auto pb-1 scrollbar-none touch-pan-x">
-          {exam.questions.map((q, idx) => {
+          {orderedQuestions.map((q, idx) => {
             const isCurrent = idx === currentQuestionIndex;
             const isAnswered = Boolean(answers[q.id]);
 
@@ -412,7 +435,7 @@ export const StudentExam: React.FC = () => {
             </h3>
 
             <div className="grid grid-cols-4 sm:grid-cols-5 lg:grid-cols-4 gap-2">
-              {exam.questions.map((q, idx) => {
+              {orderedQuestions.map((q, idx) => {
                 const isCurrent = idx === currentQuestionIndex;
                 const isAnswered = Boolean(answers[q.id]);
 
