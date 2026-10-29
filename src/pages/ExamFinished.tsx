@@ -32,7 +32,7 @@ export const ExamFinished: React.FC = () => {
     const loadData = async () => {
       setLoading(true);
       try {
-        let [examData, subData] = await Promise.all([
+        const [examData, subData] = await Promise.all([
           examService.getExam(examId),
           studentService.getSubmission(examId, user.uid)
         ]);
@@ -43,14 +43,8 @@ export const ExamFinished: React.FC = () => {
           return;
         }
 
-        // If score was not yet computed for a finished exam, trigger grading calculation
-        if (subData.finalScore === null) {
-          try {
-            subData = await studentService.submitExam(examId, user.uid, subData.status);
-          } catch (evalErr) {
-            console.warn('Error re-calculating grade:', evalErr);
-          }
-        }
+        // The score is written by the teacher's grading step (never by the student).
+        // If it is still null, the realtime subscription below shows it once it arrives.
 
         setExam(examData);
         setSubmission(subData);
@@ -77,6 +71,17 @@ export const ExamFinished: React.FC = () => {
 
     loadData();
   }, [examId, user, navigate]);
+
+  // Realtime update: show the score as soon as the teacher grades this submission
+  useEffect(() => {
+    if (!examId || !user || loading) return;
+    const unsubscribe = studentService.subscribeToSubmission(examId, user.uid, fresh => {
+      if (fresh && fresh.status !== 'in_progress') {
+        setSubmission(fresh);
+      }
+    });
+    return () => unsubscribe();
+  }, [examId, user, loading]);
 
   if (loading) {
     return (
@@ -131,6 +136,17 @@ export const ExamFinished: React.FC = () => {
               <h1 className="text-2xl font-medium text-rose-300">Evaluación Descalificada</h1>
               <p className="text-xs text-[#bbc7c6] mt-1">
                 El examen fue anulado de forma automática por exceder el límite de infracciones anti-trampa.
+              </p>
+            </div>
+          )}
+
+          {finalScore === null && (
+            <div className="mb-6 p-6 rounded-[16px] surface-deep border border-white/10 text-center">
+              <span className="text-[10px] uppercase tracking-[0.14em] font-medium text-[#bbc7c6]">
+                Calificación pendiente
+              </span>
+              <p className="text-xs text-[#bbc7c6] mt-2">
+                Tu examen fue recibido. La nota aparecerá aquí cuando el docente procese las entregas.
               </p>
             </div>
           )}
