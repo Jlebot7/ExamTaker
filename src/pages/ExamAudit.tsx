@@ -13,7 +13,6 @@ import {
   RotateCcw,
   AlertCircle,
   BarChart3,
-  HelpCircle,
   X
 } from 'lucide-react';
 import { examService } from '../services/examService';
@@ -377,7 +376,7 @@ export const ExamAudit: React.FC = () => {
                 PIN: {exam?.id}
               </span>
               <span className="text-xs text-[#bbc7c6]">
-                {exam?.durationMinutes} min límite • Máx. {exam?.maxViolations} infracciones
+                {exam?.durationMinutes} min límite • Máx. {exam?.maxViolations} infracciones • Promedio: <strong className="text-white font-mono">{averageScore !== 'N/A' ? `${averageScore} pts` : '—'}</strong>
               </span>
             </div>
             <h1 className="text-xl sm:text-2xl font-medium text-white mt-2">
