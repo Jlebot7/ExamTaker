@@ -167,17 +167,6 @@ export const StudentExam: React.FC = () => {
     }
   };
 
-  if (loading || !exam || !submission) {
-    return (
-      <div className="min-h-screen flex flex-col items-center justify-center bg-[#012624] p-4 text-white">
-        <div className="w-10 h-10 border-2 border-[#00827c] border-t-transparent rounded-full animate-spin mb-4"></div>
-        <p className="text-xs text-[#bbc7c6] uppercase tracking-wider font-mono">
-          Sincronizando evaluación con la terminal...
-        </p>
-      </div>
-    );
-  }
-
   // Order questions according to this student's persistent randomized sequence
   const orderedQuestions = useMemo(() => {
     if (!exam?.questions) return [];
@@ -209,6 +198,17 @@ export const StudentExam: React.FC = () => {
     if (!user?.uid) return currentQ.options;
     return shuffleWithSeed(currentQ.options, `${user.uid}-${currentQ.id}`);
   }, [currentQ, user?.uid]);
+
+  if (loading || !exam || !submission) {
+    return (
+      <div className="min-h-screen flex flex-col items-center justify-center bg-[#012624] p-4 text-white">
+        <div className="w-10 h-10 border-2 border-[#00827c] border-t-transparent rounded-full animate-spin mb-4"></div>
+        <p className="text-xs text-[#bbc7c6] uppercase tracking-wider font-mono">
+          Sincronizando evaluación con la terminal...
+        </p>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen flex flex-col bg-[#012624] text-white select-none">
