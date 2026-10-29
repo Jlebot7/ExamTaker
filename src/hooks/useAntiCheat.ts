@@ -36,6 +36,8 @@ export const useAntiCheat = ({
   const onDisqualifiedRef = useRef(onDisqualified);
   onDisqualifiedRef.current = onDisqualified;
 
+  const blurTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
   // Trigger violation with throttling to prevent dual-events (blur + visibilitychange)
   const triggerViolation = async (eventType: ViolationEventType, details: string) => {
     if (!isActive) return;
@@ -51,7 +53,6 @@ export const useAntiCheat = ({
     const nextCount = currentCount + 1;
     setViolationCount(nextCount);
 
-    // Save to Firebase Realtime Database
     try {
       await studentService.logViolation(
         examId,
@@ -71,7 +72,7 @@ export const useAntiCheat = ({
       // Progressive warning
       let message = '';
       if (nextCount === 1) {
-        message = `Infracción 1 de ${maxViolations}: Has cambiado de pestaña o minimizado la ventana. Toda actividad fuera del examen queda registrada.`;
+        message = `Infracción 1 de ${maxViolations}: Has cambiado de pestaña o ventana. Toda actividad fuera del examen queda registrada.`;
       } else {
         message = `Infracción ${nextCount} de ${maxViolations}: Nueva infracción detectada. Estás cerca del límite permitido (${maxViolations}). Si incurres en otra infracción, tu examen será anulado de inmediato.`;
       }
@@ -91,6 +92,7 @@ export const useAntiCheat = ({
     // 1. Visibility change listener (tab switch, minimize)
     const handleVisibilityChange = () => {
       if (document.hidden) {
+        // Tab switch or minimize is an intentional leave
         triggerViolation(
           'visibility_hidden',
           'El estudiante cambió de pestaña o minimizó la ventana del navegador.'
@@ -98,12 +100,31 @@ export const useAntiCheat = ({
       }
     };
 
-    // 2. Window Blur listener (clicking outside window, second screen, alt-tab)
+    // 2. Window Blur listener with grace period to prevent false positives from OS notifications
     const handleWindowBlur = () => {
-      triggerViolation(
-        'tab_blur',
-        'La ventana del examen perdió el foco activo del usuario.'
-      );
+      if (document.hidden) return; // Handled by visibilitychange
+
+      if (blurTimerRef.current) {
+        clearTimeout(blurTimerRef.current);
+      }
+
+      // 2500ms grace period for transient OS notifications, tooltips, or system popups
+      blurTimerRef.current = setTimeout(() => {
+        if (!document.hasFocus()) {
+          triggerViolation(
+            'tab_blur',
+            'Pérdida prolongada de foco del examen (>2.5s): posible cambio de ventana o monitor secundario.'
+          );
+        }
+      }, 2500);
+    };
+
+    const handleWindowFocus = () => {
+      // Cancel pending blur if user recovers focus within grace period (transient notification)
+      if (blurTimerRef.current) {
+        clearTimeout(blurTimerRef.current);
+        blurTimerRef.current = null;
+      }
     };
 
     // 3. Prevent Context Menu (Right Click)
@@ -142,12 +163,17 @@ export const useAntiCheat = ({
 
     document.addEventListener('visibilitychange', handleVisibilityChange);
     window.addEventListener('blur', handleWindowBlur);
+    window.addEventListener('focus', handleWindowFocus);
     document.addEventListener('contextmenu', handleContextMenu);
     window.addEventListener('keydown', handleKeyDown);
 
     return () => {
+      if (blurTimerRef.current) {
+        clearTimeout(blurTimerRef.current);
+      }
       document.removeEventListener('visibilitychange', handleVisibilityChange);
       window.removeEventListener('blur', handleWindowBlur);
+      window.removeEventListener('focus', handleWindowFocus);
       document.removeEventListener('contextmenu', handleContextMenu);
       window.removeEventListener('keydown', handleKeyDown);
     };
