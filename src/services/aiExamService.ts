@@ -1,4 +1,5 @@
-// AI Exam Question Generator Service using Groq API (OpenAI-compatible) with intelligent fallback
+// AI Exam Question Generator Service using Groq API (OpenAI-compatible) with intelligent fallback and Zod schema validation
+import { z } from 'zod';
 import type { QuestionType } from '../types';
 
 export interface AiExamRequestParams {
@@ -52,6 +53,38 @@ export const setStoredGroqModel = (model: string): void => {
 };
 
 /**
+ * Zod Schemas for runtime validation of Groq LLM responses
+ */
+const RawOptionSchema = z.union([
+  z.object({
+    id: z.string().optional(),
+    text: z.union([z.string(), z.number()]).transform(String),
+  }),
+  z.union([z.string(), z.number()]).transform((val) => ({
+    id: undefined,
+    text: String(val),
+  })),
+]);
+
+const RawQuestionSchema = z.object({
+  prompt: z.string().min(1, 'El enunciado de la pregunta no puede estar vacío'),
+  type: z.enum(['single_choice', 'true_false', 'multiple_choice']).catch('single_choice'),
+  points: z.number().positive().catch(5),
+  options: z.array(RawOptionSchema).default([]),
+  correctOptionIds: z.array(z.string()).optional(),
+  correctOptionId: z.union([z.string(), z.number()]).transform(String).optional(),
+  explanation: z.string().optional(),
+});
+
+const GroqResponseSchema = z.union([
+  z.array(RawQuestionSchema),
+  z.object({
+    questions: z.array(RawQuestionSchema).optional(),
+    items: z.array(RawQuestionSchema).optional(),
+  }).transform(obj => obj.questions || obj.items || []),
+]);
+
+/**
  * Fetches the list of active models accessible by this Groq API key
  */
 export async function getAvailableGroqModels(apiKey: string): Promise<string[]> {
@@ -68,7 +101,7 @@ export async function getAvailableGroqModels(apiKey: string): Promise<string[]> 
     if (!Array.isArray(data?.data)) return [];
 
     return data.data
-      .map((m: any) => m.id as string)
+      .map((m: { id: string }) => m.id)
       .filter((id: string) => 
         !id.includes('whisper') && 
         !id.includes('orpheus') && 
@@ -101,116 +134,77 @@ export async function generateExamQuestions(params: AiExamRequestParams): Promis
 }
 
 /**
- * Calls Groq chat completions endpoint with gpt-oss-120b and automatic compatibility cascade
+ * Call Groq OpenAI-compatible Chat Completions API with dynamic model discovery and smart cascade
  */
-async function generateWithGroq(
-  params: AiExamRequestParams,
-  apiKey: string
-): Promise<GeneratedQuestionItem[]> {
-  const complexityMap = {
-    basico: 'Básico (conceptos fundamentales, definiciones, terminología directa)',
-    intermedio: 'Intermedio (aplicación práctica, análisis de casos, comparación)',
-    avanzado: 'Avanzado (resolución de problemas complejos, análisis crítico, arquitectura)',
-    experto: 'Experto (examen de certificación / posgrado, escenarios límite, optimización)',
-  };
+async function generateWithGroq(params: AiExamRequestParams, apiKey: string): Promise<GeneratedQuestionItem[]> {
+  const systemPrompt = `Eres un docente universitario experto en diseño psicométrico y evaluación académica rigurosa.
+Tu tarea es generar preguntas de evaluación de alta calidad pedagógica sobre el tema solicitado.
+REGLAS OBLIGATORIAS:
+1. Responde ÚNICAMENTE con un JSON válido (array de objetos o { "questions": [...] }).
+2. CADA pregunta DEBE tener:
+   - "prompt": texto del enunciado claro y sin ambigüedades.
+   - "type": "single_choice" (opción múltiple con 4 opciones) o "true_false" (2 opciones).
+   - "points": puntaje asignado (entero positivo).
+   - "options": lista de opciones [{"id": "opt_1", "text": "Opción A"}, {"id": "opt_2", "text": "Opción B"}, ...].
+   - "correctOptionIds": array con los IDs de las opciones correctas (ej: ["opt_1"]).
+   - "explanation": breve justificación pedagógica de por qué es la respuesta correcta.
+3. No incluyas explicaciones fuera del JSON, ni markdown con formato extra que impida el parseo estricto.`;
 
-  const typeDesc =
-    params.questionType === 'single_choice'
-      ? 'Todas las preguntas deben ser de Opción Múltiple (4 alternativas con una sola correcta).'
-      : params.questionType === 'true_false'
-      ? 'Todas las preguntas deben ser de Verdadero o Falso (exactamente 2 alternativas: Verdadero y Falso).'
-      : 'Combina aproximadamente 60% de Opción Múltiple (4 alternativas) y 40% de Verdadero o Falso.';
+  const userPrompt = `Genera ${params.count} preguntas sobre el tema: "${params.topic}".
+Nivel de complejidad: ${params.complexity}.
+Modalidad de preguntas solicitada: ${params.questionType}.
+Puntos por pregunta sugeridos: ${params.pointsPerQuestion} pts.
+${params.customInstructions ? `Instrucciones adicionales del docente: ${params.customInstructions}` : ''}
 
-  const prompt = `Genera exactamente ${params.count} preguntas de evaluación sobre el tema: "${params.topic}".
+Recuerda: Si es opción múltiple, provee 4 opciones con distractores plausibles. Si es verdadero/falso, provee exactamente las 2 opciones correspondientes.`;
 
-Instrucciones pedagógicas:
-- Formato de preguntas: ${typeDesc}
-- Nivel de complejidad: ${complexityMap[params.complexity] || params.complexity}
-- Puntos por pregunta: ${params.pointsPerQuestion || 5}
-${params.customInstructions ? `- Instrucciones complementarias del docente: ${params.customInstructions}` : ''}
-
-Requisitos estrictos de salida:
-Responde EXCLUSIVAMENTE con un JSON válido con la siguiente estructura exacta:
-{
-  "questions": [
-    {
-      "prompt": "Enunciado claro y bien redactado de la pregunta",
-      "type": "single_choice" | "true_false",
-      "points": ${params.pointsPerQuestion || 5},
-      "options": [
-        { "id": "opt_1", "text": "Primera opción" },
-        { "id": "opt_2", "text": "Segunda opción" },
-        { "id": "opt_3", "text": "Tercera opción" },
-        { "id": "opt_4", "text": "Cuarta opción" }
-      ],
-      "correctOptionIds": ["opt_X"],
-      "explanation": "Breve explicación pedagógica de por qué la respuesta es correcta"
-    }
-  ]
-}
-
-Para preguntas de Verdadero/Falso, el array "options" DEBE contener exactamente:
-[
-  { "id": "tf_true", "text": "Verdadero" },
-  { "id": "tf_false", "text": "Falso" }
-]
-Y "correctOptionIds" debe ser ["tf_true"] o ["tf_false"].`;
-
-  const requestBody = (modelId: string) =>
-    JSON.stringify({
-      model: modelId,
-      messages: [
-        {
-          role: 'system',
-          content:
-            'Eres un catedrático universitario y evaluador académico experto en psicometría educativa. Generas preguntas rigurosas, objetivas y sin ambigüedades en JSON estricto.',
-        },
-        {
-          role: 'user',
-          content: prompt,
-        },
-      ],
-      response_format: { type: 'json_object' },
-      temperature: 0.25,
-      max_tokens: 4096,
-    });
-
-  // Discover what models this key has permission to use
+  // 1. Fetch available models for this API key to know exactly what is active
   const activeModels = await getAvailableGroqModels(apiKey);
-  const preferredModel = (params.model || getStoredGroqModel() || DEFAULT_MODEL).trim();
 
-  // Build cascade list of models to try
-  let modelsToTry: string[] = [];
+  // 2. Prepare priority cascade of models
+  const candidateModels: string[] = [];
 
-  if (activeModels.length > 0) {
-    const directMatch = activeModels.find(m => m === preferredModel || m.endsWith(preferredModel));
-    const gpt120 = activeModels.find(m => m.includes('gpt-oss-120b') || m.includes('120b'));
-    const anyGpt = activeModels.find(m => m.includes('gpt-oss'));
+  // A. User selected / preferred model
+  if (params.model) candidateModels.push(params.model);
 
-    modelsToTry = [
-      ...(directMatch ? [directMatch] : [preferredModel]),
-      ...(gpt120 && gpt120 !== directMatch ? [gpt120] : []),
-      ...(anyGpt && anyGpt !== directMatch && anyGpt !== gpt120 ? [anyGpt] : []),
-      ...activeModels.filter(m => m !== directMatch && m !== gpt120 && m !== anyGpt)
-    ];
-  } else {
-    modelsToTry = [
-      preferredModel,
-      'openai/gpt-oss-120b',
-      'gpt-oss-120b',
-      'openai/gpt-oss-20b',
-      'llama-3.1-8b-instant',
-      'llama-3.3-70b-versatile',
-      'qwen/qwen3.8-27b'
-    ];
+  // B. Standard primary Groq models
+  candidateModels.push(
+    'openai/gpt-oss-120b',
+    'openai/gpt-oss-20b',
+    'llama-3.3-70b-versatile',
+    'llama-3.1-70b-versatile',
+    'llama-3.1-8b-instant',
+    'mixtral-8x7b-32768',
+    'gemma2-9b-it'
+  );
+
+  // C. Add any models active on the user's account that we haven't tested
+  for (const m of activeModels) {
+    if (!candidateModels.includes(m)) {
+      candidateModels.push(m);
+    }
   }
 
-  // Deduplicate
-  modelsToTry = Array.from(new Set(modelsToTry));
+  // Filter out models known to NOT exist on this key if activeModels was successfully fetched
+  const orderedModels = activeModels.length > 0
+    ? candidateModels.filter(m => activeModels.includes(m))
+    : candidateModels;
 
-  let lastError = '';
+  const modelsToTry = orderedModels.length > 0 ? orderedModels : candidateModels;
+
   let response: Response | null = null;
+  let lastError = '';
   let usedModel = '';
+
+  const requestBody = (modelName: string) => JSON.stringify({
+    model: modelName,
+    messages: [
+      { role: 'system', content: systemPrompt },
+      { role: 'user', content: userPrompt },
+    ],
+    temperature: 0.4,
+    response_format: { type: 'json_object' },
+  });
 
   for (const modelId of modelsToTry) {
     try {
@@ -261,18 +255,24 @@ Y "correctOptionIds" debe ser ["tf_true"] o ["tf_false"].`;
   }
 
   const parsed = JSON.parse(content);
-  const rawQuestions = Array.isArray(parsed) ? parsed : parsed.questions || parsed.items || [];
+  const validated = GroqResponseSchema.safeParse(parsed);
 
-  if (!Array.isArray(rawQuestions) || rawQuestions.length === 0) {
+  if (!validated.success) {
+    throw new Error(`La estructura devuelta por Groq no cumplió el esquema esperado: ${validated.error.issues.map(i => i.message).join(', ')}`);
+  }
+
+  const rawQuestions = validated.data;
+
+  if (rawQuestions.length === 0) {
     throw new Error('No se detectaron preguntas en el formato esperado desde la respuesta de Groq');
   }
 
-  return rawQuestions.map((q: any, idx: number) => {
+  return rawQuestions.map((q, idx: number) => {
     const qId = `q_ai_${Date.now()}_${idx + 1}`;
     const type: QuestionType = q.type === 'true_false' ? 'true_false' : 'single_choice';
 
     let options = Array.isArray(q.options)
-      ? q.options.map((opt: any, optIdx: number) => ({
+      ? q.options.map((opt, optIdx: number) => ({
           id: opt.id || (type === 'true_false' ? (optIdx === 0 ? 'tf_true' : 'tf_false') : `opt_${optIdx + 1}`),
           text: String(opt.text || opt),
         }))
@@ -335,23 +335,22 @@ function generateLocally(params: AiExamRequestParams): GeneratedQuestionItem[] {
           { id: 'tf_false', text: 'Falso' },
         ],
         correctOptionIds: [isTrue ? 'tf_true' : 'tf_false'],
-        explanation: `Fundamento pedagógico #${qIdx}: Esta afirmación corresponde al nivel ${params.complexity} para el dominio de ${cleanTopic}.`,
+        explanation: `Justificación pedagógica: En ${cleanTopic}, este enunciado refleja los conceptos teóricos estándar evaluados en este nivel de complejidad (${params.complexity}).`,
       });
     } else {
-      const correctIdx = (i % 4) + 1;
       result.push({
         id: qId,
-        prompt: `[${params.complexity.toUpperCase()}] En el contexto de "${cleanTopic}", ¿cuál de las siguientes opciones describe con mayor precisión el concepto clave #${qIdx}?`,
+        prompt: `[${params.complexity.toUpperCase()}] En el contexto de "${cleanTopic}", ¿cuál de las siguientes opciones describe con mayor precisión el concepto principal #${qIdx}?`,
         type: 'single_choice',
         points: params.pointsPerQuestion || 5,
         options: [
-          { id: 'opt_1', text: `Definición analítica principal de ${cleanTopic} aplicada a escenarios de nivel ${params.complexity}.` },
-          { id: 'opt_2', text: `Mecanismo secundario de control e integración operativa en ${cleanTopic}.` },
-          { id: 'opt_3', text: `Restricción estructural complementaria que optimiza la consistencia en ${cleanTopic}.` },
-          { id: 'opt_4', text: `Parámetro de configuración contingente sin impacto en la arquitectura de ${cleanTopic}.` },
+          { id: 'opt_1', text: `Aplica la definición teórica fundamental y los estándares clave de ${cleanTopic}.` },
+          { id: 'opt_2', text: `Modifica arbitrariamente las variables sin considerar los principios de ${cleanTopic}.` },
+          { id: 'opt_3', text: `Se limita exclusivamente a escenarios obsoletos o no validados experimentalmente.` },
+          { id: 'opt_4', text: `Invalida los modelos matemáticos y analíticos aplicados en este dominio.` },
         ],
-        correctOptionIds: [`opt_${correctIdx}`],
-        explanation: `La opción #${correctIdx} formula adecuadamente la relación causal de ${cleanTopic} según el nivel ${params.complexity}.`,
+        correctOptionIds: ['opt_1'],
+        explanation: `Justificación pedagógica: La opción A sintetiza los principios técnicos esenciales de ${cleanTopic}. Las demás opciones contienen distorsiones conceptuales.`,
       });
     }
   }
