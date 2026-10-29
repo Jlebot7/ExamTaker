@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ShieldCheck, Mail, Lock, User, ArrowRight, AlertCircle, Sparkles } from 'lucide-react';
+import { ShieldCheck, Mail, Lock, User, ArrowRight, AlertCircle, Sparkles, KeyRound } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 
 export const TeacherAuth: React.FC = () => {
@@ -8,11 +8,14 @@ export const TeacherAuth: React.FC = () => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [displayName, setDisplayName] = useState('');
+  const [accessCode, setAccessCode] = useState('');
   const [localError, setLocalError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const { loginTeacher, registerTeacher, loginDemoTeacher, isFirebaseActive } = useAuth();
   const navigate = useNavigate();
+
+  const requiredAccessCode = import.meta.env.VITE_TEACHER_ACCESS_CODE as string | undefined;
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -25,6 +28,10 @@ export const TeacherAuth: React.FC = () => {
       } else {
         if (!displayName.trim()) {
           throw new Error('Por favor ingresa tu nombre completo');
+        }
+        // Institutional access code validation if configured
+        if (requiredAccessCode && accessCode.trim() !== requiredAccessCode.trim()) {
+          throw new Error('Código de acceso institucional no válido. Contacte a su administrador.');
         }
         await registerTeacher(email, password, displayName);
       }
@@ -113,22 +120,43 @@ export const TeacherAuth: React.FC = () => {
           {/* Form */}
           <form onSubmit={handleSubmit} className="space-y-4">
             {!isLogin && (
-              <div>
-                <label className="block text-[10px] font-medium uppercase tracking-[0.1em] text-[#bbc7c6] mb-1.5">
-                  Nombre Completo
-                </label>
-                <div className="relative">
-                  <User className="w-4 h-4 text-[#bbc7c6] absolute left-3.5 top-1/2 -translate-y-1/2" />
-                  <input
-                    type="text"
-                    required
-                    value={displayName}
-                    onChange={e => setDisplayName(e.target.value)}
-                    placeholder="Prof. Juan Pérez"
-                    className="w-full surface-deep border border-white/10 focus:border-[#00827c] rounded-[6px] pl-10 pr-4 py-2.5 text-xs text-white placeholder-[#bbc7c6]/50 outline-none transition"
-                  />
+              <>
+                <div>
+                  <label className="block text-[10px] font-medium uppercase tracking-[0.1em] text-[#bbc7c6] mb-1.5">
+                    Nombre Completo
+                  </label>
+                  <div className="relative">
+                    <User className="w-4 h-4 text-[#bbc7c6] absolute left-3.5 top-1/2 -translate-y-1/2" />
+                    <input
+                      type="text"
+                      required
+                      value={displayName}
+                      onChange={e => setDisplayName(e.target.value)}
+                      placeholder="Prof. Juan Pérez"
+                      className="w-full surface-deep border border-white/10 focus:border-[#00827c] rounded-[6px] pl-10 pr-4 py-2.5 text-xs text-white placeholder-[#bbc7c6]/50 outline-none transition"
+                    />
+                  </div>
                 </div>
-              </div>
+
+                {requiredAccessCode && (
+                  <div>
+                    <label className="block text-[10px] font-medium uppercase tracking-[0.1em] text-[#bbc7c6] mb-1.5">
+                      Código de Acceso Institucional
+                    </label>
+                    <div className="relative">
+                      <KeyRound className="w-4 h-4 text-[#bbc7c6] absolute left-3.5 top-1/2 -translate-y-1/2" />
+                      <input
+                        type="password"
+                        required
+                        value={accessCode}
+                        onChange={e => setAccessCode(e.target.value)}
+                        placeholder="Código otorgado por la institución"
+                        className="w-full surface-deep border border-white/10 focus:border-[#00827c] rounded-[6px] pl-10 pr-4 py-2.5 text-xs text-white placeholder-[#bbc7c6]/50 outline-none transition"
+                      />
+                    </div>
+                  </div>
+                )}
+              </>
             )}
 
             <div>
@@ -193,7 +221,7 @@ export const TeacherAuth: React.FC = () => {
             </button>
             <p className="text-[11px] text-[#bbc7c6]/70 text-center mt-2">
               {isFirebaseActive 
-                ? 'Conectado a Firebase Authentication y Realtime Database.'
+                ? 'Conectado a Firebase Authentication y Cloud Firestore.'
                 : 'Usa el perfil demo para explorar todas las herramientas de inmediato.'}
             </p>
           </div>
