@@ -67,3 +67,4 @@ describe('gradeSubmission', () => {
     expect(result.maxScore).toBe(35);
   });
 });
+
