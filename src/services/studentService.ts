@@ -1,46 +1,69 @@
-import { 
-  collection, 
-  doc, 
-  setDoc, 
-  getDoc, 
-  getDocs, 
-  deleteDoc, 
-  updateDoc, 
-  onSnapshot 
+import {
+  collection,
+  doc,
+  setDoc,
+  getDoc,
+  getDocs,
+  deleteDoc,
+  updateDoc,
+  onSnapshot,
+  serverTimestamp,
+  Timestamp,
+  writeBatch,
+  type DocumentData
 } from 'firebase/firestore';
 import { db, isFirebaseConfigured } from './firebaseConfig';
-import type { 
-  Submission, 
-  SubmissionStatus, 
-  IntegrityLog, 
-  ViolationEventType, 
-  ExamKey 
+import type {
+  Submission,
+  SubmissionStatus,
+  IntegrityLog,
+  ViolationEventType,
+  ExamKey
 } from '../types';
-import { 
-  getMockSubmissions, 
-  saveMockSubmission, 
-  deleteMockSubmission, 
-  resetAllMockSubmissions, 
-  getMockLogs, 
-  addMockLog, 
-  getMockExamKey 
+import {
+  getMockSubmissions,
+  saveMockSubmission,
+  deleteMockSubmission,
+  resetAllMockSubmissions,
+  getMockLogs,
+  addMockLog,
+  getMockExamKey
 } from './mockStorage';
-import { examService } from './examService';
 import { shuffleArray } from '../utils/shuffle';
+import { gradeSubmission } from '../utils/grading';
 
 let serverTimeOffset = 0;
 
 /**
  * Returns current estimated server timestamp in milliseconds.
+ * The offset is calibrated from the server-written startedAt of a freshly created submission.
  */
 export const getEstimatedServerTime = (): number => {
   return Date.now() + serverTimeOffset;
 };
 
+/** Firestore Timestamp | number | null -> epoch millis | null */
+const toMillis = (value: unknown): number | null => {
+  if (value instanceof Timestamp) return value.toMillis();
+  if (typeof value === 'number') return value;
+  return null;
+};
+
+/**
+ * Normalizes a Firestore submission document. startedAt and submittedAt are written with
+ * serverTimestamp() (validated by the security rules) and are converted back to millis here,
+ * so the rest of the app keeps working with numbers.
+ */
+const toSubmission = (data: DocumentData): Submission => ({
+  ...(data as Submission),
+  startedAt: toMillis(data.startedAt) ?? Date.now(),
+  submittedAt: toMillis(data.submittedAt),
+});
+
 export const studentService = {
   /**
    * Initializes or returns existing student submission session in Cloud Firestore.
-   * If questionIds are provided, generates a deterministic randomized question order for this student.
+   * If questionIds are provided, generates a randomized question order for this student.
    */
   async startOrGetSubmission(
     examId: string,
@@ -60,14 +83,10 @@ export const studentService = {
       const snap = await getDoc(subRef);
 
       if (snap.exists()) {
-        const data = snap.data() as Submission;
-        if (data.startedAt) {
-          // Adjust client-server skew if available
-          serverTimeOffset = 0;
-        }
+        const data = toSubmission(snap.data());
 
-        // If existing submission doesn't have questionOrder yet but questions are provided, generate & persist
-        if ((!data.questionOrder || data.questionOrder.length === 0) && questionIds && questionIds.length > 0) {
+        // Persist a question order only if none exists yet (the rules reject overwriting it)
+        if ((!data.questionOrder || data.questionOrder.length === 0) && questionIds && questionIds.length > 0 && data.status === 'in_progress') {
           const newOrder = generateOrder();
           data.questionOrder = newOrder;
           await updateDoc(subRef, { questionOrder: newOrder });
@@ -76,11 +95,13 @@ export const studentService = {
         return data;
       }
 
-      const initialSubmission: Submission = {
+      const localBefore = Date.now();
+      // startedAt MUST be the server time: the rules enforce startedAt == request.time
+      await setDoc(subRef, {
         studentUid,
         studentName,
         studentCode,
-        startedAt: Date.now(),
+        startedAt: serverTimestamp(),
         submittedAt: null,
         status: 'in_progress',
         answers: {},
@@ -88,10 +109,14 @@ export const studentService = {
         finalScore: null,
         maxScore: null,
         questionOrder: generateOrder(),
-      };
+      });
 
-      await setDoc(subRef, initialSubmission);
-      return initialSubmission;
+      const created = await getDoc(subRef);
+      const localAfter = Date.now();
+      const submission = toSubmission(created.data() ?? {});
+      // Calibrate the client clock against the server (midpoint of the round trip)
+      serverTimeOffset = submission.startedAt - Math.round((localBefore + localAfter) / 2);
+      return submission;
     } else {
       const subs = getMockSubmissions(examId);
       if (subs[studentUid]) {
@@ -154,6 +179,7 @@ export const studentService = {
 
   /**
    * Records an integrity violation log and increments violation counter.
+   * Log and counter are written atomically; the rules only allow the counter to grow.
    */
   async logViolation(
     examId: string,
@@ -178,12 +204,10 @@ export const studentService = {
         violationNumber: nextCount,
       };
 
-      await Promise.all([
-        setDoc(logDoc, logData),
-        updateDoc(subRef, {
-          violationCount: nextCount,
-        }),
-      ]);
+      const batch = writeBatch(db);
+      batch.set(logDoc, logData);
+      batch.update(subRef, { violationCount: nextCount });
+      await batch.commit();
     } else {
       const logData: IntegrityLog = {
         id: 'log_' + Math.random().toString(36).substring(2, 9),
@@ -207,6 +231,10 @@ export const studentService = {
 
   /**
    * Submits the exam (manually by student, by timeout, or disqualified by anti-cheat).
+   *
+   * SECURITY: in Firebase mode the student only locks the submission. The student never
+   * reads the answer key nor writes a score; grading is done by the teacher's client
+   * (see gradePendingSubmissions) or, ideally, by a Cloud Function.
    */
   async submitExam(
     examId: string,
@@ -214,106 +242,80 @@ export const studentService = {
     status: SubmissionStatus = 'submitted',
     examKey?: ExamKey | null
   ): Promise<Submission> {
-    const timestamp = getEstimatedServerTime();
-
-    let finalScore: number | null = null;
-    let maxScore: number | null = null;
-    let currentSubmission: Submission;
-
     if (isFirebaseConfigured) {
       const subRef = doc(db, 'exams', examId, 'submissions', studentUid);
       const snap = await getDoc(subRef);
       if (!snap.exists()) throw new Error('Envío no encontrado');
-      currentSubmission = snap.data() as Submission;
+      const current = toSubmission(snap.data());
 
-      // 1. Lock submission state in Firestore
+      if (current.status !== 'in_progress') {
+        return current;
+      }
+
       await updateDoc(subRef, {
-        submittedAt: timestamp,
+        submittedAt: serverTimestamp(),
         status,
       });
 
-      // 2. Fetch answer key for auto-grading (allowed because status is locked)
-      let activeKey = examKey;
-      if (!activeKey) {
-        try {
-          activeKey = await examService.getExamKey(examId);
-        } catch (keyErr) {
-          console.warn('Could not retrieve examKey automatically:', keyErr);
-        }
-      }
-
-      if (activeKey) {
-        let total = 0;
-        let earned = 0;
-        Object.entries(activeKey.keys).forEach(([qId, keyData]) => {
-          total += keyData.points;
-          const studentAns = currentSubmission.answers?.[qId];
-          if (Array.isArray(studentAns)) {
-            const matches = studentAns.length === keyData.correctOptionIds.length &&
-              studentAns.every(id => keyData.correctOptionIds.includes(id));
-            if (matches) earned += keyData.points;
-          } else if (typeof studentAns === 'string') {
-            if (keyData.correctOptionIds.includes(studentAns)) {
-              earned += keyData.points;
-            }
-          }
-        });
-
-        maxScore = total;
-        finalScore = status === 'disqualified' ? 0 : earned;
-
-        await updateDoc(subRef, {
-          finalScore,
-          maxScore,
-        });
-      } else if (status === 'disqualified') {
-        finalScore = 0;
-        await updateDoc(subRef, { finalScore });
-      }
-
       return {
-        ...currentSubmission,
-        submittedAt: timestamp,
+        ...current,
+        submittedAt: getEstimatedServerTime(),
         status,
-        finalScore,
-        maxScore,
+        finalScore: null,
+        maxScore: null,
       };
     } else {
       const subs = getMockSubmissions(examId);
-      currentSubmission = subs[studentUid];
+      const currentSubmission = subs[studentUid];
       if (!currentSubmission) throw new Error('Envío no encontrado');
 
       const activeKey = examKey || getMockExamKey(examId);
+      let finalScore: number | null = status === 'disqualified' ? 0 : null;
+      let maxScore: number | null = null;
       if (activeKey) {
-        let total = 0;
-        let earned = 0;
-        Object.entries(activeKey.keys).forEach(([qId, keyData]) => {
-          total += keyData.points;
-          const studentAns = currentSubmission.answers?.[qId];
-          if (Array.isArray(studentAns)) {
-            const matches = studentAns.length === keyData.correctOptionIds.length &&
-              studentAns.every(id => keyData.correctOptionIds.includes(id));
-            if (matches) earned += keyData.points;
-          } else if (typeof studentAns === 'string') {
-            if (keyData.correctOptionIds.includes(studentAns)) {
-              earned += keyData.points;
-            }
-          }
-        });
-
-        maxScore = total;
-        finalScore = status === 'disqualified' ? 0 : earned;
-      } else if (status === 'disqualified') {
-        finalScore = 0;
+        const result = gradeSubmission(currentSubmission.answers, activeKey, status);
+        finalScore = result.finalScore;
+        maxScore = result.maxScore;
       }
 
-      currentSubmission.submittedAt = timestamp;
+      currentSubmission.submittedAt = Date.now();
       currentSubmission.status = status;
       currentSubmission.finalScore = finalScore;
       currentSubmission.maxScore = maxScore;
       saveMockSubmission(examId, currentSubmission);
       return currentSubmission;
     }
+  },
+
+  /**
+   * Teacher-only: grades every finished submission that has no score yet and writes the result.
+   * Returns how many submissions were graded.
+   */
+  async gradePendingSubmissions(
+    examId: string,
+    submissions: Record<string, Submission>,
+    examKey: ExamKey
+  ): Promise<number> {
+    const pending = Object.entries(submissions).filter(
+      ([, sub]) => sub.status !== 'in_progress' && sub.finalScore === null
+    );
+    if (pending.length === 0) return 0;
+
+    if (isFirebaseConfigured) {
+      const batch = writeBatch(db);
+      pending.forEach(([uid, sub]) => {
+        const { finalScore, maxScore } = gradeSubmission(sub.answers, examKey, sub.status);
+        batch.update(doc(db, 'exams', examId, 'submissions', uid), { finalScore, maxScore });
+      });
+      await batch.commit();
+    } else {
+      pending.forEach(([, sub]) => {
+        const { finalScore, maxScore } = gradeSubmission(sub.answers, examKey, sub.status);
+        saveMockSubmission(examId, { ...sub, finalScore, maxScore });
+      });
+    }
+
+    return pending.length;
   },
 
   /**
@@ -328,7 +330,7 @@ export const studentService = {
       const unsubscribe = onSnapshot(subsRef, snap => {
         const subsMap: Record<string, Submission> = {};
         snap.forEach(docSnap => {
-          subsMap[docSnap.id] = docSnap.data() as Submission;
+          subsMap[docSnap.id] = toSubmission(docSnap.data());
         });
         callback(subsMap);
       });
@@ -338,6 +340,28 @@ export const studentService = {
       const interval = setInterval(() => {
         callback(getMockSubmissions(examId));
       }, 2000);
+      return () => clearInterval(interval);
+    }
+  },
+
+  /**
+   * Realtime subscription to a single student's own submission (used to show the score
+   * once the teacher grades it).
+   */
+  subscribeToSubmission(
+    examId: string,
+    studentUid: string,
+    callback: (submission: Submission | null) => void
+  ): () => void {
+    if (isFirebaseConfigured) {
+      const subRef = doc(db, 'exams', examId, 'submissions', studentUid);
+      return onSnapshot(subRef, snap => {
+        callback(snap.exists() ? toSubmission(snap.data()) : null);
+      });
+    } else {
+      const read = () => callback(getMockSubmissions(examId)[studentUid] || null);
+      read();
+      const interval = setInterval(read, 3000);
       return () => clearInterval(interval);
     }
   },
@@ -376,7 +400,7 @@ export const studentService = {
     if (isFirebaseConfigured) {
       const subRef = doc(db, 'exams', examId, 'submissions', studentUid);
       const snap = await getDoc(subRef);
-      return snap.exists() ? (snap.data() as Submission) : null;
+      return snap.exists() ? toSubmission(snap.data()) : null;
     } else {
       const subs = getMockSubmissions(examId);
       return subs[studentUid] || null;
