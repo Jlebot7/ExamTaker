@@ -16,6 +16,7 @@ import { examService } from '../services/examService';
 import { studentService } from '../services/studentService';
 import { useServerTimer } from '../hooks/useServerTimer';
 import { useAntiCheat } from '../hooks/useAntiCheat';
+import { shuffleWithSeed } from '../utils/shuffle';
 import type { Exam, Submission } from '../types';
 
 export const StudentExam: React.FC = () => {
@@ -202,6 +203,13 @@ export const StudentExam: React.FC = () => {
   const totalQuestions = orderedQuestions.length;
   const answeredCount = Object.keys(answers).length;
 
+  // Memoize deterministic option shuffle per student and question
+  const currentOptions = useMemo(() => {
+    if (!currentQ || !currentQ.options) return [];
+    if (!user?.uid) return currentQ.options;
+    return shuffleWithSeed(currentQ.options, `${user.uid}-${currentQ.id}`);
+  }, [currentQ, user?.uid]);
+
   return (
     <div className="min-h-screen flex flex-col bg-[#012624] text-white select-none">
       {/* Top Banner: Distraction-Free Exam Header */}
@@ -351,7 +359,7 @@ export const StudentExam: React.FC = () => {
 
             {/* Options List */}
             <div className="space-y-3 pt-2">
-              {currentQ.options.map((option, idx) => {
+              {currentOptions.map((option, idx) => {
                 const isSelected = answers[currentQ.id] === option.id;
 
                 return (
