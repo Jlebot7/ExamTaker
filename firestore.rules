@@ -1,95 +1,166 @@
 rules_version = '2';
 
+/* ==========================================================================
+   Auros TestQ — Reglas de seguridad de Cloud Firestore (Endurecidas)
+
+   Principios de Integridad Zero-Leak:
+   - El estudiante NUNCA lee la clave de respuestas (/exam_keys) ni escribe su nota.
+   - Las horas de inicio y entrega las establece el servidor (request.time).
+   - El estudiante solo puede responder dentro del tiempo del examen (+1 min de gracia).
+   - El contador de infracciones solo puede subir de uno en uno.
+   - Solo cuentas no anónimas (docentes) pueden crear exámenes y claves.
+   - Los exámenes no pueden ser enumerados en masa por terceros.
+   ========================================================================== */
+
 service cloud.firestore {
   match /databases/{database}/documents {
 
+    function signedIn() {
+      return request.auth != null;
+    }
+
+    // Los estudiantes entran con sesión anónima; los docentes con correo.
+    function isTeacher() {
+      return signedIn() && request.auth.token.firebase.sign_in_provider != 'anonymous';
+    }
+
+    function examPath(examId) {
+      return /databases/$(database)/documents/exams/$(examId);
+    }
+
+    function isExamOwner(examId) {
+      return isTeacher()
+        && exists(examPath(examId))
+        && get(examPath(examId)).data.createdBy == request.auth.uid;
+    }
+
     /* ====================================================================
-       1. EXÁMENES PÚBLICOS (/exams/{examId})
-       - Contiene: Título, preguntas, opciones de respuesta, tiempo límite y puntos.
-       - Aislamiento Zero-Leak: NUNCA contiene las respuestas correctas.
-       - Lectura: Permitida si el examen está publicado o al docente creador.
-       - Escritura: Exclusiva del docente creador.
+       1. EXÁMENES PÚBLICOS (/exams/{examId}) — nunca contienen respuestas.
+       - get: examen publicado, o el docente creador.
+       - list: solo los exámenes propios (no se puede enumerar el banco).
        ==================================================================== */
     match /exams/{examId} {
-      allow read: if resource == null || resource.data.isPublished == true || (
-        request.auth != null && resource.data.createdBy == request.auth.uid
-      );
-      
-      allow create: if request.auth != null &&
-        request.resource.data.createdBy == request.auth.uid;
+      allow get: if resource == null
+        || resource.data.isPublished == true
+        || (signedIn() && resource.data.createdBy == request.auth.uid);
 
-      allow update, delete: if request.auth != null &&
-        resource.data.createdBy == request.auth.uid;
+      allow list: if isTeacher() && resource.data.createdBy == request.auth.uid;
 
-      /* ====================================================================
-         2. ENVÍOS Y RESPUESTAS (/exams/{examId}/submissions/{studentUid})
-         - Contiene: Respuestas seleccionadas en tiempo real, hora de inicio,
-           infracciones acumuladas y estado.
-         - Lectura: El alumno lee su propio intento; el docente lee los de su examen.
-         - Escritura: El alumno crea su intento y actualiza respuestas mientras
-           esté 'in_progress'; el docente puede calificar.
-         ==================================================================== */
+      allow create: if isTeacher()
+        && request.resource.data.createdBy == request.auth.uid;
+
+      allow update: if isTeacher()
+        && resource.data.createdBy == request.auth.uid
+        && request.resource.data.createdBy == resource.data.createdBy;
+
+      allow delete: if isTeacher() && resource.data.createdBy == request.auth.uid;
+
+      /* ==================================================================
+         2. ENVÍOS (/exams/{examId}/submissions/{studentUid})
+         ================================================================== */
       match /submissions/{studentUid} {
-        allow read: if request.auth != null && (
-          request.auth.uid == studentUid ||
-          get(/databases/$(database)/documents/exams/$(examId)).data.createdBy == request.auth.uid
-        );
 
-        allow create: if request.auth != null &&
-          request.auth.uid == studentUid;
+        function isStudent() {
+          return signedIn() && request.auth.uid == studentUid;
+        }
 
-        allow update: if request.auth != null && (
-          (request.auth.uid == studentUid && (
-            resource.data.status == 'in_progress' ||
-            request.resource.data.status in ['submitted', 'timed_out', 'disqualified']
-          )) ||
-          get(/databases/$(database)/documents/exams/$(examId)).data.createdBy == request.auth.uid
-        );
+        function examData() {
+          return get(examPath(examId)).data;
+        }
 
-        allow delete: if request.auth != null &&
-          get(/databases/$(database)/documents/exams/$(examId)).data.createdBy == request.auth.uid;
+        function changedKeys() {
+          return request.resource.data.diff(resource.data).affectedKeys();
+        }
 
-        /* ====================================================================
-           3. REGISTRO DE AUDITORÍA E INTEGRIDAD (/logs/{logId})
-           - Contiene: Eventos de pérdida de foco, atajos y sospechas.
-           - Lectura: Alumno propio y docente creador.
-           - Escritura: Alumno puede añadir registros de infracción.
-           ==================================================================== */
+        // Tiempo del examen + 1 minuto de gracia, medido con la hora del servidor.
+        function answeringWindowOpen() {
+          return request.time < resource.data.startedAt
+            + duration.value(int(examData().durationMinutes) + 1, 'm');
+        }
+
+        allow read: if isStudent() || isExamOwner(examId);
+
+        // Creación: siempre "en progreso", sin nota, con la hora del servidor.
+        allow create: if isStudent()
+          && examData().isPublished == true
+          && request.resource.data.keys().hasOnly([
+               'studentUid', 'studentName', 'studentCode', 'startedAt', 'submittedAt',
+               'status', 'answers', 'violationCount', 'finalScore', 'maxScore', 'questionOrder'
+             ])
+          && request.resource.data.studentUid == studentUid
+          && request.resource.data.studentName is string
+          && request.resource.data.studentName.size() <= 120
+          && request.resource.data.studentCode is string
+          && request.resource.data.studentCode.size() <= 60
+          && request.resource.data.startedAt == request.time
+          && request.resource.data.submittedAt == null
+          && request.resource.data.status == 'in_progress'
+          && request.resource.data.answers == {}
+          && request.resource.data.violationCount == 0
+          && request.resource.data.finalScore == null
+          && request.resource.data.maxScore == null;
+
+        // Estudiante: solo mientras está en progreso, y solo estos campos.
+        allow update: if isStudent()
+          && resource.data.status == 'in_progress'
+          && changedKeys().hasOnly(['answers', 'status', 'submittedAt', 'violationCount', 'questionOrder'])
+          // Respuestas solo dentro del tiempo
+          && (!changedKeys().hasAny(['answers']) || answeringWindowOpen())
+          // Sigue en progreso, o se cierra con la hora del servidor
+          && (
+               (request.resource.data.status == 'in_progress' && !changedKeys().hasAny(['submittedAt']))
+               || (request.resource.data.status in ['submitted', 'timed_out', 'disqualified']
+                   && request.resource.data.submittedAt == request.time)
+             )
+          // Las infracciones solo suben de una en una
+          && (!changedKeys().hasAny(['violationCount'])
+              || request.resource.data.violationCount == resource.data.violationCount + 1)
+          // El orden de preguntas solo se asigna una vez
+          && (!changedKeys().hasAny(['questionOrder'])
+              || resource.data.get('questionOrder', []).size() == 0);
+
+        // Docente: solo puede escribir la calificación.
+        allow update: if isExamOwner(examId)
+          && changedKeys().hasOnly(['finalScore', 'maxScore']);
+
+        allow delete: if isExamOwner(examId);
+
+        /* ================================================================
+           3. AUDITORÍA (/exams/{examId}/submissions/{studentUid}/logs/{logId})
+           - El estudiante solo agrega eventos mientras su examen está en curso.
+           - Nadie puede editar un evento; solo el docente puede borrarlos.
+           ================================================================ */
         match /logs/{logId} {
-          allow read: if request.auth != null && (
-            request.auth.uid == studentUid ||
-            get(/databases/$(database)/documents/exams/$(examId)).data.createdBy == request.auth.uid
-          );
+          allow read: if isStudent() || isExamOwner(examId);
 
-          allow create: if request.auth != null &&
-            request.auth.uid == studentUid;
+          allow create: if isStudent()
+            && get(/databases/$(database)/documents/exams/$(examId)/submissions/$(studentUid)).data.status == 'in_progress'
+            && request.resource.data.keys().hasOnly(['id', 'timestamp', 'eventType', 'details', 'violationNumber'])
+            && request.resource.data.details is string
+            && request.resource.data.details.size() <= 500;
 
-          allow delete: if request.auth != null &&
-            get(/databases/$(database)/documents/exams/$(examId)).data.createdBy == request.auth.uid;
+          allow delete: if isExamOwner(examId);
         }
       }
     }
 
     /* ====================================================================
-       4. CLAVES SECRETAS DE RESPUESTAS (/exam_keys/{examId})
-       - Contiene: Mapeo de respuestas correctas { [questionId]: correctOptionIds }.
-       - Seguridad Zero-Leak: ESTRICTAMENTE PROHIBIDA la lectura a los estudiantes.
-       - Lectura y Escritura: ÚNICAMENTE el docente creador del examen.
+       4. CLAVES DE RESPUESTAS (/exam_keys/{examId})
+       - ÚNICAMENTE el docente creador. Ningún estudiante, en ningún estado.
+       - La clave se crea en el mismo batch que el examen (getAfter).
        ==================================================================== */
     match /exam_keys/{examId} {
-      allow read: if request.auth != null && (
-        (resource != null && resource.data.createdBy == request.auth.uid) ||
-        get(/databases/$(database)/documents/exams/$(examId)).data.createdBy == request.auth.uid ||
-        get(/databases/$(database)/documents/exams/$(examId)/submissions/$(request.auth.uid)).data.status in ['submitted', 'timed_out', 'disqualified']
-      );
+      allow read: if isTeacher() && resource.data.createdBy == request.auth.uid;
 
-      allow create: if request.auth != null &&
-        request.resource.data.createdBy == request.auth.uid;
+      allow create: if isTeacher()
+        && request.resource.data.createdBy == request.auth.uid
+        && getAfter(examPath(examId)).data.createdBy == request.auth.uid;
 
-      allow update, delete: if request.auth != null && (
-        (resource != null && resource.data.createdBy == request.auth.uid) ||
-        get(/databases/$(database)/documents/exams/$(examId)).data.createdBy == request.auth.uid
-      );
+      allow update: if isTeacher()
+        && resource.data.createdBy == request.auth.uid
+        && request.resource.data.createdBy == request.auth.uid;
+
+      allow delete: if isTeacher() && resource.data.createdBy == request.auth.uid;
     }
   }
 }
