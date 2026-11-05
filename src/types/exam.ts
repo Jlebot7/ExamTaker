@@ -26,6 +26,7 @@ export interface Exam {
   questions: Question[];
   totalPoints: number;
   randomizeQuestions?: boolean; // Si es true (por defecto), cada estudiante recibe las preguntas en orden aleatorio único
+  requireCamera?: boolean; // Si es true, exige al estudiante activar la cámara web/celular para supervisión anti-plagio
 }
 
 // Clave secreta almacenada de forma aislada en /exam_keys/{examId}
