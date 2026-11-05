@@ -71,7 +71,15 @@ export const useAntiCheat = ({
     } else {
       // Progressive warning
       let message = '';
-      if (nextCount === 1) {
+      if (eventType === 'camera_phone_detected') {
+        message = `Infracción ${nextCount} de ${maxViolations}: Se detectó un teléfono celular frente a la cámara o pantalla. Está terminantemente prohibido tomar fotografías o consultar fuentes externas.`;
+      } else if (eventType === 'camera_multiple_persons') {
+        message = `Infracción ${nextCount} de ${maxViolations}: Se detectaron múltiples personas en el encuadre de la cámara. La evaluación debe realizarse de forma estrictamente individual.`;
+      } else if (eventType === 'camera_absence') {
+        message = `Infracción ${nextCount} de ${maxViolations}: Has salido del encuadre de la cámara de seguridad. Permanece frente a la pantalla durante todo el examen.`;
+      } else if (eventType === 'camera_blocked') {
+        message = `Infracción ${nextCount} de ${maxViolations}: La cámara fue deshabilitada o el permiso revocado. La cámara debe permanecer activa.`;
+      } else if (nextCount === 1) {
         message = `Infracción 1 de ${maxViolations}: Has cambiado de pestaña o ventana. Toda actividad fuera del examen queda registrada.`;
       } else {
         message = `Infracción ${nextCount} de ${maxViolations}: Nueva infracción detectada. Estás cerca del límite permitido (${maxViolations}). Si incurres en otra infracción, tu examen será anulado de inmediato.`;
@@ -187,5 +195,6 @@ export const useAntiCheat = ({
     violationCount,
     activeWarning,
     dismissWarning,
+    triggerViolation,
   };
 };
