@@ -78,7 +78,9 @@ service cloud.firestore {
             + duration.value(int(examData().durationMinutes) + 1, 'm');
         }
 
-        allow read: if isStudent() || isExamOwner(examId);
+        allow read: if isStudent()
+          || isExamOwner(examId)
+          || (resource.data.status in ['submitted', 'timed_out', 'disqualified'] && resource.data.finalScore != null);
 
         // Creación: siempre "en progreso", sin nota, con la hora del servidor.
         allow create: if isStudent()
@@ -119,9 +121,9 @@ service cloud.firestore {
           && (!changedKeys().hasAny(['questionOrder'])
               || resource.data.get('questionOrder', []).size() == 0);
 
-        // Docente: solo puede escribir la calificación.
+        // Docente: solo puede escribir la calificación final y el desglose de preguntas abiertas.
         allow update: if isExamOwner(examId)
-          && changedKeys().hasOnly(['finalScore', 'maxScore']);
+          && changedKeys().hasOnly(['finalScore', 'maxScore', 'openQuestionScores']);
 
         allow delete: if isExamOwner(examId);
 
