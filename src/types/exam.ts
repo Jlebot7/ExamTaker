@@ -1,4 +1,4 @@
-export type QuestionType = 'single_choice' | 'multiple_choice' | 'true_false';
+export type QuestionType = 'single_choice' | 'multiple_choice' | 'true_false' | 'open_ended';
 
 export interface QuestionOption {
   id: string;
@@ -32,8 +32,10 @@ export interface Exam {
 // Clave secreta almacenada de forma aislada en /exam_keys/{examId}
 // NUNCA se expone al estudiante durante la prueba
 export interface QuestionKeyAnswer {
-  correctOptionIds: string[]; // IDs de opciones correctas
+  correctOptionIds: string[]; // IDs de opciones correctas (para preguntas cerradas)
   points: number;
+  rubric?: string; // Criterios esperados de evaluación y conceptos clave para preguntas abiertas
+  idealAnswer?: string; // Respuesta modelo de referencia
 }
 
 export interface ExamKey {
