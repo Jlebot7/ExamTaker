@@ -1,5 +1,11 @@
 import { useEffect, useRef, useState, useCallback } from 'react';
 import type { ViolationEventType } from '../types';
+import {
+  evaluateDetectionFrame,
+  createInitialTrackerState,
+  type ProctoringTrackerState,
+  type DetectionPrediction,
+} from '../utils/cameraProctoringUtils';
 
 interface UseCameraProctoringProps {
   isActive: boolean;
@@ -8,14 +14,8 @@ interface UseCameraProctoringProps {
 
 export type CameraPermissionState = 'idle' | 'requesting' | 'granted' | 'denied' | 'unsupported' | 'error';
 
-interface DetectionItem {
-  bbox: [number, number, number, number];
-  class: string;
-  score: number;
-}
-
 interface CocoSsdModel {
-  detect: (img: HTMLVideoElement | HTMLCanvasElement) => Promise<DetectionItem[]>;
+  detect: (img: HTMLVideoElement | HTMLCanvasElement) => Promise<DetectionPrediction[]>;
 }
 
 export const useCameraProctoring = ({
@@ -34,10 +34,8 @@ export const useCameraProctoring = ({
   const [phoneDetected, setPhoneDetected] = useState(false);
   const [personCount, setPersonCount] = useState<number>(1);
 
-  // Consecutive detection counters for debouncing false positives
-  const consecutivePhoneHitsRef = useRef(0);
-  const consecutiveAbsenceHitsRef = useRef(0);
-  const consecutiveMultipleHitsRef = useRef(0);
+  // Vision detection tracker state for debouncing & cooldowns
+  const trackerStateRef = useRef<ProctoringTrackerState>(createInitialTrackerState());
   const lastViolationTimeRef = useRef<Record<string, number>>({});
 
   const onViolationRef = useRef(onViolation);
@@ -182,58 +180,17 @@ export const useCameraProctoring = ({
         const predictions = await model.detect(video);
         if (!isMounted) return;
 
-        // A. Cellphone / Camera detection (looking for mobile phones held up or taking pictures)
-        const phoneDetections = predictions.filter(
-          p => p.class === 'cell phone' && p.score >= 0.52
-        );
+        const frameResult = evaluateDetectionFrame(predictions, trackerStateRef.current);
+        trackerStateRef.current = frameResult.nextState;
 
-        if (phoneDetections.length > 0) {
-          consecutivePhoneHitsRef.current += 1;
-          const bestScore = Math.round(Math.max(...phoneDetections.map(p => p.score)) * 100);
+        setPhoneDetected(frameResult.phoneDetected);
+        setPersonCount(frameResult.personCount);
 
-          setPhoneDetected(true);
-
-          // Require 2 consecutive hits (~1.8 seconds) to prevent false positives
-          if (consecutivePhoneHitsRef.current >= 2) {
-            triggerDebouncedViolation(
-              'camera_phone_detected',
-              `Dispositivo móvil o celular detectado frente a la pantalla/cámara (confianza: ${bestScore}%). Posible intento de fotografía o consulta externa.`
-            );
-          }
-        } else {
-          consecutivePhoneHitsRef.current = 0;
-          setPhoneDetected(false);
-        }
-
-        // B. Person presence detection
-        const persons = predictions.filter(
-          p => p.class === 'person' && p.score >= 0.45
-        );
-        setPersonCount(persons.length);
-
-        if (persons.length === 0) {
-          consecutiveAbsenceHitsRef.current += 1;
-          // ~6 seconds absent (5 consecutive cycles of 1200ms)
-          if (consecutiveAbsenceHitsRef.current >= 5) {
-            triggerDebouncedViolation(
-              'camera_absence',
-              'El estudiante está ausente del encuadre de la cámara de seguridad.'
-            );
-          }
-        } else {
-          consecutiveAbsenceHitsRef.current = 0;
-        }
-
-        if (persons.length > 1) {
-          consecutiveMultipleHitsRef.current += 1;
-          if (consecutiveMultipleHitsRef.current >= 2) {
-            triggerDebouncedViolation(
-              'camera_multiple_persons',
-              `Se detectaron ${persons.length} personas en el encuadre de la evaluación.`
-            );
-          }
-        } else {
-          consecutiveMultipleHitsRef.current = 0;
+        if (frameResult.violationToEmit) {
+          onViolationRef.current(
+            frameResult.violationToEmit.type,
+            frameResult.violationToEmit.details
+          );
         }
       } catch (inferErr) {
         console.warn('Error en ciclo de inferencia visual:', inferErr);
