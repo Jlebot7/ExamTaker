@@ -13,7 +13,8 @@ export interface GradeResult {
 export function gradeSubmission(
   answers: Submission['answers'] | undefined,
   key: ExamKey,
-  status: SubmissionStatus
+  status: SubmissionStatus,
+  openQuestionScores?: Submission['openQuestionScores']
 ): GradeResult {
   let maxScore = 0;
   let earned = 0;
@@ -22,7 +23,14 @@ export function gradeSubmission(
     maxScore += keyData.points;
     const studentAnswer = answers?.[questionId];
 
-    if (Array.isArray(studentAnswer)) {
+    // If it's an open-ended question (empty correctOptionIds), score comes from manual/AI awarded points
+    const isOpenEnded = keyData.correctOptionIds.length === 0;
+
+    if (isOpenEnded) {
+      if (openQuestionScores && openQuestionScores[questionId]) {
+        earned += Math.max(0, Math.min(keyData.points, openQuestionScores[questionId].points));
+      }
+    } else if (Array.isArray(studentAnswer)) {
       const matches =
         studentAnswer.length === keyData.correctOptionIds.length &&
         studentAnswer.every(id => keyData.correctOptionIds.includes(id));
