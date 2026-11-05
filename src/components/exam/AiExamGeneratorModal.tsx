@@ -8,7 +8,7 @@ import {
   FileCheck2,
   CheckCircle2,
   Layers,
-  Sliders,
+  Hash,
   ChevronDown,
   ChevronUp
 } from 'lucide-react';
@@ -224,25 +224,27 @@ export const AiExamGeneratorModal: React.FC<AiExamGeneratorModalProps> = ({
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 {/* Count & Points */}
                 <div className="surface-deep p-4 rounded-xl border border-white/10 space-y-3">
-                  <div className="flex items-center justify-between">
-                    <label className="text-xs uppercase tracking-[0.1em] text-[#edfffe] flex items-center gap-1.5">
-                      <Sliders className="w-3.5 h-3.5 text-[#cbfffc]" />
-                      <span>Cantidad de Preguntas:</span>
+                  <div>
+                    <label className="block text-xs uppercase tracking-[0.1em] text-[#edfffe] mb-1.5 flex items-center gap-1.5">
+                      <Hash className="w-3.5 h-3.5 text-[#cbfffc]" />
+                      <span>Cantidad de Preguntas *</span>
                     </label>
-                    <span className="text-sm font-mono font-medium text-[#fde9ff]">{count}</span>
-                  </div>
-                  <input
-                    type="range"
-                    min={1}
-                    max={20}
-                    value={count}
-                    onChange={e => setCount(Number(e.target.value))}
-                    className="w-full accent-[#00827c] cursor-pointer"
-                  />
-                  <div className="flex justify-between text-[10px] text-[#707777] font-mono">
-                    <span>1 mín</span>
-                    <span>10 medio</span>
-                    <span>20 máx</span>
+                    <input
+                      type="number"
+                      min={1}
+                      max={30}
+                      required
+                      value={count}
+                      onChange={e => {
+                        const val = parseInt(e.target.value, 10);
+                        setCount(isNaN(val) ? 1 : Math.max(1, Math.min(30, val)));
+                      }}
+                      className="w-full bg-[#011d1c] border border-white/15 focus:border-[#cbfffc] focus:ring-1 focus:ring-[#cbfffc] rounded-md px-3.5 py-2 text-sm text-[#fde9ff] font-mono outline-none transition"
+                      placeholder="Ej: 5"
+                    />
+                    <span className="text-[10px] text-[#707777] mt-1 block">
+                      Ingresa el número de preguntas (1 a 30)
+                    </span>
                   </div>
 
                   <div className="pt-2 border-t border-white/10 flex items-center justify-between">
