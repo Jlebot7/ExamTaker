@@ -300,6 +300,14 @@ export const ExamAudit: React.FC = () => {
         return 'Intento de pegar contenido (Clipboard)';
       case 'devtools_opened':
         return 'Apertura de herramientas de desarrollo (F12)';
+      case 'camera_phone_detected':
+        return 'Detección de celular / intento de fotografiado';
+      case 'camera_multiple_persons':
+        return 'Múltiples personas frente a la cámara';
+      case 'camera_absence':
+        return 'Estudiante ausente de la toma de cámara';
+      case 'camera_blocked':
+        return 'Cámara bloqueada o permiso denegado';
       default:
         return type;
     }
