@@ -10,7 +10,8 @@ import {
   AlertCircle, 
   CheckCircle2, 
   KeyRound, 
-  ShieldAlert 
+  ShieldAlert,
+  Camera 
 } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import { examService } from '../services/examService';
@@ -189,6 +190,12 @@ export const StudentEntry: React.FC = () => {
                     <ShieldAlert className="w-3.5 h-3.5 text-[#edfffe]" />
                     <span>Máx. {examPreview.maxViolations} infracciones</span>
                   </div>
+                  {examPreview.requireCamera && (
+                    <div className="flex items-center gap-1 text-[#cbfffc]">
+                      <Camera className="w-3.5 h-3.5 text-[#cbfffc]" />
+                      <span>Cámara Requerida</span>
+                    </div>
+                  )}
                 </div>
               </div>
             )}
