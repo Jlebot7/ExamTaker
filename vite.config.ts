@@ -18,6 +18,9 @@ export default defineConfig({
           if (id.includes('node_modules/firebase')) {
             return 'firebase';
           }
+          if (id.includes('node_modules/@tensorflow') || id.includes('node_modules/@tensorflow-models')) {
+            return 'tensorflow';
+          }
           if (id.includes('node_modules')) {
             return 'vendor';
           }
