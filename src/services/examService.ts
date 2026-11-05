@@ -40,7 +40,8 @@ export const examService = {
   async createExam(
     examData: Omit<Exam, 'id' | 'createdAt' | 'totalPoints'>,
     questions: Question[],
-    correctOptionsMap: Record<string, string[]> // questionId -> [correctOptionId]
+    correctOptionsMap: Record<string, string[]>, // questionId -> [correctOptionId]
+    rubricsMap?: Record<string, { rubric?: string; idealAnswer?: string }>
   ): Promise<string> {
     const totalPoints = questions.reduce((sum, q) => sum + (q.points || 1), 0);
     const createdAt = Date.now();
@@ -66,11 +67,13 @@ export const examService = {
       };
 
       // Construct isolated answer key
-      const keysMap: Record<string, { correctOptionIds: string[]; points: number }> = {};
+      const keysMap: Record<string, { correctOptionIds: string[]; points: number; rubric?: string; idealAnswer?: string }> = {};
       questions.forEach(q => {
         keysMap[q.id] = {
           correctOptionIds: correctOptionsMap[q.id] || [],
           points: q.points || 1,
+          ...(rubricsMap?.[q.id]?.rubric ? { rubric: rubricsMap[q.id].rubric } : {}),
+          ...(rubricsMap?.[q.id]?.idealAnswer ? { idealAnswer: rubricsMap[q.id].idealAnswer } : {}),
         };
       });
 
@@ -98,11 +101,13 @@ export const examService = {
         totalPoints,
       };
 
-      const keysMap: Record<string, { correctOptionIds: string[]; points: number }> = {};
+      const keysMap: Record<string, { correctOptionIds: string[]; points: number; rubric?: string; idealAnswer?: string }> = {};
       questions.forEach(q => {
         keysMap[q.id] = {
           correctOptionIds: correctOptionsMap[q.id] || [],
           points: q.points || 1,
+          ...(rubricsMap?.[q.id]?.rubric ? { rubric: rubricsMap[q.id].rubric } : {}),
+          ...(rubricsMap?.[q.id]?.idealAnswer ? { idealAnswer: rubricsMap[q.id].idealAnswer } : {}),
         };
       });
 
@@ -124,7 +129,8 @@ export const examService = {
     examId: string,
     examData: Partial<Exam>,
     questions?: Question[],
-    correctOptionsMap?: Record<string, string[]>
+    correctOptionsMap?: Record<string, string[]>,
+    rubricsMap?: Record<string, { rubric?: string; idealAnswer?: string }>
   ): Promise<void> {
     const totalPoints = questions ? questions.reduce((sum, q) => sum + (q.points || 1), 0) : examData.totalPoints;
 
@@ -143,11 +149,13 @@ export const examService = {
       batch.set(examRef, updatedExam);
 
       if (questions && correctOptionsMap) {
-        const keysMap: Record<string, { correctOptionIds: string[]; points: number }> = {};
+        const keysMap: Record<string, { correctOptionIds: string[]; points: number; rubric?: string; idealAnswer?: string }> = {};
         questions.forEach(q => {
           keysMap[q.id] = {
             correctOptionIds: correctOptionsMap[q.id] || [],
             points: q.points || 1,
+            ...(rubricsMap?.[q.id]?.rubric ? { rubric: rubricsMap[q.id].rubric } : {}),
+            ...(rubricsMap?.[q.id]?.idealAnswer ? { idealAnswer: rubricsMap[q.id].idealAnswer } : {}),
           };
         });
 
@@ -177,11 +185,13 @@ export const examService = {
 
       let examKey: ExamKey | undefined;
       if (questions && correctOptionsMap) {
-        const keysMap: Record<string, { correctOptionIds: string[]; points: number }> = {};
+        const keysMap: Record<string, { correctOptionIds: string[]; points: number; rubric?: string; idealAnswer?: string }> = {};
         questions.forEach(q => {
           keysMap[q.id] = {
             correctOptionIds: correctOptionsMap[q.id] || [],
             points: q.points || 1,
+            ...(rubricsMap?.[q.id]?.rubric ? { rubric: rubricsMap[q.id].rubric } : {}),
+            ...(rubricsMap?.[q.id]?.idealAnswer ? { idealAnswer: rubricsMap[q.id].idealAnswer } : {}),
           };
         });
         examKey = {
