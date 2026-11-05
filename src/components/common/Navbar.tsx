@@ -156,6 +156,41 @@ export const Navbar: React.FC = () => {
       {/* Mobile Collapsible Dropdown Menu */}
       {mobileMenuOpen && (
         <div className="md:hidden border-b border-white/10 bg-[#011d1c] px-4 py-4 space-y-3 animate-fadeIn">
+          {/* Navigation Links for Mobile */}
+          <nav className="flex flex-col gap-1 pb-3 border-b border-white/10">
+            <Link
+              to="/"
+              onClick={closeMenu}
+              className={`px-3 py-2 rounded-md text-xs uppercase tracking-[0.12em] font-medium transition ${
+                location.pathname === '/' ? 'bg-[#003734] text-white' : 'text-[#bbc7c6] hover:text-white hover:bg-white/5'
+              }`}
+            >
+              Inicio
+            </Link>
+            <Link
+              to="/student"
+              onClick={closeMenu}
+              className={`px-3 py-2 rounded-md text-xs uppercase tracking-[0.12em] font-medium transition ${
+                location.pathname.startsWith('/student') || location.pathname.startsWith('/exam')
+                  ? 'bg-[#003734] text-white'
+                  : 'text-[#bbc7c6] hover:text-white hover:bg-white/5'
+              }`}
+            >
+              Portal Evaluación
+            </Link>
+            <Link
+              to="/teacher"
+              onClick={closeMenu}
+              className={`px-3 py-2 rounded-md text-xs uppercase tracking-[0.12em] font-medium transition ${
+                location.pathname.startsWith('/teacher')
+                  ? 'bg-[#003734] text-white'
+                  : 'text-[#bbc7c6] hover:text-white hover:bg-white/5'
+              }`}
+            >
+              Gestión Docente
+            </Link>
+          </nav>
+
           <div className="flex items-center justify-between pb-3 border-b border-white/10 text-xs">
             <span className="text-[#bbc7c6]">Estado de Plataforma:</span>
             <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-[11px] font-mono border border-white/10 bg-[#003734] text-[#edfffe]">
