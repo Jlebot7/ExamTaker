@@ -14,7 +14,8 @@ import {
   Eye, 
   AlertCircle,
   RotateCcw,
-  CheckCircle2
+  CheckCircle2,
+  Camera
 } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import { examService } from '../services/examService';
@@ -231,7 +232,7 @@ export const TeacherDashboard: React.FC = () => {
               <div className="p-6">
                 {/* Top badges */}
                 <div className="flex items-center justify-between gap-2 mb-4">
-                  <div className="flex items-center gap-1.5">
+                  <div className="flex items-center gap-1.5 flex-wrap">
                     <span className="text-[11px] font-mono px-2.5 py-1 rounded-[6px] surface-deep border border-white/8 text-[#edfffe] font-medium uppercase">
                       PIN: {exam.id}
                     </span>
@@ -246,6 +247,15 @@ export const TeacherDashboard: React.FC = () => {
                         <Copy className="w-3.5 h-3.5" />
                       )}
                     </button>
+                    {exam.requireCamera && (
+                      <span 
+                        title="Este examen requiere supervisión por cámara para prevenir el uso de celulares y fotos"
+                        className="text-[10px] font-mono px-2 py-0.5 rounded-[4px] bg-[#00827c]/20 border border-[#00827c]/40 text-[#cbfffc] inline-flex items-center gap-1"
+                      >
+                        <Camera className="w-3 h-3 text-[#cbfffc]" />
+                        <span>Cámara</span>
+                      </span>
+                    )}
                   </div>
 
                   <button
