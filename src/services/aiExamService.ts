@@ -5,7 +5,7 @@ import type { QuestionType } from '../types';
 export interface AiExamRequestParams {
   topic: string;
   count: number;
-  questionType: 'single_choice' | 'true_false' | 'mixed';
+  questionType: 'single_choice' | 'true_false' | 'open_ended' | 'mixed';
   complexity: 'basico' | 'intermedio' | 'avanzado' | 'experto';
   pointsPerQuestion: number;
   customInstructions?: string;
@@ -21,6 +21,8 @@ export interface GeneratedQuestionItem {
   options: { id: string; text: string }[];
   correctOptionIds: string[];
   explanation?: string;
+  rubric?: string;
+  idealAnswer?: string;
 }
 
 const GROQ_STORAGE_KEY = 'examtaker_groq_api_key';
@@ -68,12 +70,21 @@ const RawOptionSchema = z.union([
 
 const RawQuestionSchema = z.object({
   prompt: z.string().min(1, 'El enunciado de la pregunta no puede estar vacío'),
-  type: z.enum(['single_choice', 'true_false', 'multiple_choice']).catch('single_choice'),
+  type: z.enum(['single_choice', 'true_false', 'multiple_choice', 'open_ended']).catch('single_choice'),
   points: z.number().positive().catch(5),
   options: z.array(RawOptionSchema).default([]),
   correctOptionIds: z.array(z.string()).optional(),
   correctOptionId: z.union([z.string(), z.number()]).transform(String).optional(),
   explanation: z.string().optional(),
+  rubric: z.string().optional(),
+  idealAnswer: z.string().optional(),
+});
+
+export const OpenAnswerEvaluationSchema = z.object({
+  suggestedPoints: z.number().min(0),
+  rationale: z.string(),
+  strengths: z.array(z.string()).default([]),
+  improvements: z.array(z.string()).default([]),
 });
 
 const GroqResponseSchema = z.union([
@@ -143,11 +154,14 @@ REGLAS OBLIGATORIAS:
 1. Responde ÚNICAMENTE con un JSON válido (array de objetos o { "questions": [...] }).
 2. CADA pregunta DEBE tener:
    - "prompt": texto del enunciado claro y sin ambigüedades.
-   - "type": "single_choice" (opción múltiple con 4 opciones) o "true_false" (2 opciones).
+   - "type": "single_choice" (opción múltiple con 4 opciones), "true_false" (2 opciones), o "open_ended" (pregunta abierta / de desarrollo).
    - "points": puntaje asignado (entero positivo).
-   - "options": lista de opciones [{"id": "opt_1", "text": "Opción A"}, {"id": "opt_2", "text": "Opción B"}, ...].
-   - "correctOptionIds": array con los IDs de las opciones correctas (ej: ["opt_1"]).
-   - "explanation": breve justificación pedagógica de por qué es la respuesta correcta.
+   - "options": lista de opciones [{"id": "opt_1", "text": "Opción A"}, ...] para cerradas, o [] para "open_ended".
+   - "correctOptionIds": array con los IDs de las opciones correctas (ej: ["opt_1"]) para cerradas, o [] para "open_ended".
+   - "explanation": justificación pedagógica de la respuesta correcta o conceptos clave.
+   - Si el tipo es "open_ended", DEBES incluir:
+     * "rubric": criterios de evaluación esperados y conceptos clave que el estudiante debe abordar.
+     * "idealAnswer": respuesta modelo detallada que sirva de guía para la calificación.
 3. No incluyas explicaciones fuera del JSON, ni markdown con formato extra que impida el parseo estricto.`;
 
   const userPrompt = `Genera ${params.count} preguntas sobre el tema: "${params.topic}".
@@ -156,7 +170,7 @@ Modalidad de preguntas solicitada: ${params.questionType}.
 Puntos por pregunta sugeridos: ${params.pointsPerQuestion} pts.
 ${params.customInstructions ? `Instrucciones adicionales del docente: ${params.customInstructions}` : ''}
 
-Recuerda: Si es opción múltiple, provee 4 opciones con distractores plausibles. Si es verdadero/falso, provee exactamente las 2 opciones correspondientes.`;
+Recuerda: Si es opción múltiple, provee 4 opciones con distractores plausibles. Si es verdadero/falso, provee exactamente las 2 opciones correspondientes. Si es pregunta abierta (open_ended), provee el enunciado, la rúbrica detallada y la respuesta modelo.`;
 
   // 1. Fetch available models for this API key to know exactly what is active
   const activeModels = await getAvailableGroqModels(apiKey);
@@ -269,9 +283,15 @@ Recuerda: Si es opción múltiple, provee 4 opciones con distractores plausibles
 
   return rawQuestions.map((q, idx: number) => {
     const qId = `q_ai_${Date.now()}_${idx + 1}`;
-    const type: QuestionType = q.type === 'true_false' ? 'true_false' : 'single_choice';
+    const rawType = q.type;
+    const type: QuestionType = 
+      rawType === 'open_ended' ? 'open_ended' :
+      rawType === 'true_false' ? 'true_false' : 
+      rawType === 'multiple_choice' ? 'multiple_choice' : 'single_choice';
 
-    let options = Array.isArray(q.options)
+    let options = type === 'open_ended'
+      ? []
+      : Array.isArray(q.options)
       ? q.options.map((opt, optIdx: number) => ({
           id: opt.id || (type === 'true_false' ? (optIdx === 0 ? 'tf_true' : 'tf_false') : `opt_${optIdx + 1}`),
           text: String(opt.text || opt),
@@ -286,7 +306,9 @@ Recuerda: Si es opción múltiple, provee 4 opciones con distractores plausibles
     }
 
     let correctOptionIds: string[] = [];
-    if (Array.isArray(q.correctOptionIds) && q.correctOptionIds.length > 0) {
+    if (type === 'open_ended') {
+      correctOptionIds = [];
+    } else if (Array.isArray(q.correctOptionIds) && q.correctOptionIds.length > 0) {
       correctOptionIds = q.correctOptionIds;
     } else if (q.correctOptionId) {
       correctOptionIds = [String(q.correctOptionId)];
@@ -304,6 +326,8 @@ Recuerda: Si es opción múltiple, provee 4 opciones con distractores plausibles
       options,
       correctOptionIds,
       explanation: q.explanation ? String(q.explanation) : undefined,
+      rubric: q.rubric ? String(q.rubric) : undefined,
+      idealAnswer: q.idealAnswer ? String(q.idealAnswer) : undefined,
     };
   });
 }
@@ -317,13 +341,30 @@ function generateLocally(params: AiExamRequestParams): GeneratedQuestionItem[] {
 
   for (let i = 0; i < params.count; i++) {
     const qIdx = i + 1;
+    const isOpenEnded =
+      params.questionType === 'open_ended' ||
+      (params.questionType === 'mixed' && i % 3 === 2);
+
     const isTf =
-      params.questionType === 'true_false' ||
-      (params.questionType === 'mixed' && i % 2 === 1);
+      !isOpenEnded &&
+      (params.questionType === 'true_false' ||
+      (params.questionType === 'mixed' && i % 3 === 1));
 
     const qId = `q_local_${Date.now()}_${qIdx}`;
 
-    if (isTf) {
+    if (isOpenEnded) {
+      result.push({
+        id: qId,
+        prompt: `[${params.complexity.toUpperCase()}] Explica detalladamente cómo los principios fundamentales de "${cleanTopic}" influyen en la resolución del problema práctico #${qIdx}. Fundamenta tu respuesta con conceptos teóricos.`,
+        type: 'open_ended',
+        points: params.pointsPerQuestion || 5,
+        options: [],
+        correctOptionIds: [],
+        rubric: `Criterios de evaluación: El alumno debe mencionar al menos dos conceptos centrales de ${cleanTopic}, explicar su relación causa-efecto y aplicar una terminología técnica coherente.`,
+        idealAnswer: `Una respuesta completa analiza los fundamentos de ${cleanTopic}, articulando cómo estos determinan el diseño, rendimiento y estabilidad del sistema bajo estudio.`,
+        explanation: `Pregunta abierta para evaluar capacidad analítica y síntesis conceptual sobre ${cleanTopic}.`,
+      });
+    } else if (isTf) {
       const isTrue = i % 2 === 0;
       result.push({
         id: qId,
@@ -356,4 +397,134 @@ function generateLocally(params: AiExamRequestParams): GeneratedQuestionItem[] {
   }
 
   return result;
+}
+
+export interface OpenAnswerEvaluationRequest {
+  questionPrompt: string;
+  maxPoints: number;
+  rubric?: string;
+  idealAnswer?: string;
+  studentAnswer: string;
+  apiKey?: string;
+}
+
+export interface OpenAnswerEvaluationResult {
+  suggestedPoints: number;
+  rationale: string;
+  strengths: string[];
+  improvements: string[];
+  evaluatedModel: string;
+}
+
+/**
+ * AI Pedagogical Evaluation for Open-Ended Student Answers.
+ * Uses Groq LLM (always targeted to 'openai/gpt-oss-120b') to analyze semantic understanding,
+ * recognizing paraphrasing, synonyms, and partial answers without requiring exact string matching.
+ */
+export async function evaluateOpenAnswerWithAi(
+  params: OpenAnswerEvaluationRequest
+): Promise<OpenAnswerEvaluationResult> {
+  const effectiveKey = (params.apiKey || getStoredGroqKey()).trim();
+  const evaluationModel = 'openai/gpt-oss-120b';
+
+  const cleanAnswer = (params.studentAnswer || '').trim();
+
+  // If answer is empty or whitespace
+  if (!cleanAnswer) {
+    return {
+      suggestedPoints: 0,
+      rationale: 'El estudiante no proporcionó ninguna respuesta a esta pregunta.',
+      strengths: [],
+      improvements: ['Redactar una explicación que responda a la consigna planteada.'],
+      evaluatedModel: 'system-empty-check',
+    };
+  }
+
+  // If no Groq API Key is present, provide intelligent local heuristic grading
+  if (!effectiveKey) {
+    const wordCount = cleanAnswer.split(/\s+/).filter(Boolean).length;
+    const ratio = Math.min(1, Math.max(0.2, wordCount / 25));
+    const localPoints = Math.round(params.maxPoints * ratio * 10) / 10;
+    return {
+      suggestedPoints: localPoints,
+      rationale: `[Evaluación heurística local] Respuesta de ${wordCount} palabras recibida. Para evaluación semántica neuronal con GPT-OSS 120B, configura tu Groq API Key.`,
+      strengths: ['El estudiante redactó una respuesta argumentada.'],
+      improvements: ['Configurar API Key de Groq para análisis semántico profundo con openai/gpt-oss-120b.'],
+      evaluatedModel: 'local-heuristic',
+    };
+  }
+
+  const systemPrompt = `Eres un docente universitario y evaluador pedagógico experto.
+Tu labor es calificar la respuesta abierta de un estudiante según el enunciado, el puntaje máximo y los criterios/rúbrica esperados.
+
+REGLAS DE EVALUACIÓN SEMÁNTICA RIGUROSA:
+1. NO exijas una coincidencia exacta de palabras o strings literales. Reconoce sinónimos, paráfrasis, explicaciones con vocabulario propio del estudiante y razonamientos conceptualmente válidos.
+2. Si la respuesta es completamente acertada y cumple la rúbrica, otorga el puntaje máximo (${params.maxPoints}).
+3. Si la respuesta es parcialmente correcta, incompleta o superficial, otorga un puntaje proporcional equitativo (ej. 2.5, 3.5, etc. entre 0 y ${params.maxPoints}).
+4. Si la respuesta es totalmente errónea, inventada o no responde al enunciado, otorga 0 puntos.
+5. Responde ÚNICAMENTE con un JSON válido con esta estructura exacta:
+{
+  "suggestedPoints": <número entre 0 y ${params.maxPoints}>,
+  "rationale": "<explicación pedagógica clara y constructiva de por qué se otorgó ese puntaje>",
+  "strengths": ["<punto fuerte 1>", "<punto fuerte 2>"],
+  "improvements": ["<aspecto a mejorar o concepto omitido 1>"]
+}`;
+
+  const userPrompt = `Consigna de la Pregunta:
+"${params.questionPrompt}"
+
+Puntaje Máximo Posible: ${params.maxPoints} pts.
+
+${params.rubric ? `Rúbrica y Criterios Esperados del Docente:\n"${params.rubric}"\n` : ''}
+${params.idealAnswer ? `Respuesta Modelo / Conceptos Indispensables:\n"${params.idealAnswer}"\n` : ''}
+
+Respuesta Redactada por el Estudiante:
+"""
+${cleanAnswer}
+"""
+
+Evalúa la respuesta del estudiante con criterio académico, equitativo y constructivo.`;
+
+  try {
+    const response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${effectiveKey}`,
+      },
+      body: JSON.stringify({
+        model: evaluationModel,
+        messages: [
+          { role: 'system', content: systemPrompt },
+          { role: 'user', content: userPrompt },
+        ],
+        temperature: 0.2, // Low temperature for consistent grading
+        response_format: { type: 'json_object' },
+      }),
+    });
+
+    if (!response.ok) {
+      const errBody = await response.text();
+      throw new Error(`Groq API error (${response.status}): ${errBody}`);
+    }
+
+    const data = await response.json();
+    const rawContent = data.choices?.[0]?.message?.content || '{}';
+    const parsedJson = JSON.parse(rawContent);
+    const validated = OpenAnswerEvaluationSchema.parse(parsedJson);
+
+    // Clamp score between 0 and maxPoints
+    const clampedPoints = Math.min(params.maxPoints, Math.max(0, Math.round(validated.suggestedPoints * 10) / 10));
+
+    return {
+      suggestedPoints: clampedPoints,
+      rationale: validated.rationale,
+      strengths: validated.strengths || [],
+      improvements: validated.improvements || [],
+      evaluatedModel: evaluationModel,
+    };
+  } catch (err: unknown) {
+    console.error('Error al evaluar respuesta abierta con Groq:', err);
+    throw err;
+  }
 }
