@@ -34,8 +34,23 @@ Operating on a **100% serverless architecture** powered by **Google Cloud Firest
 ### 🤖 Groq AI Exam Studio
 - **Prompt-to-Exam Generation**: Generate complete, high-quality assessments in seconds simply by writing a topic or domain (e.g. *"Quantum Physics", "TypeScript Advanced Types", "Organic Chemistry"*).
 - **Dynamic Model Discovery & Cascade**: Automatically queries available models on your Groq key (`openai/gpt-oss-120b`, `llama-3.3-70b-versatile`, `llama-3.1-8b-instant`, etc.) with intelligent fallback cascades to ensure zero downtime.
+- **Direct Numeric Question Input**: Direct numeric box allowing educators to specify the exact number of questions (1 to 30) with keyboard precision, replacing imprecise sliders.
 - **Granular Customization**: Set question count (1 to 30), question format (multiple choice, true/false, or mixed), difficulty level (*Básico*, *Intermedio*, *Avanzado*, *Experto*), score weighting, and optional custom instructions.
 - **Zero-Leak Compatible**: Automatically isolates distractors and answer keys upon generation, preventing correct answers from reaching student devices.
+
+### 📷 AI Camera Proctoring & Smartphone Detection
+- **Client-Side Edge Vision**: Powered by **TensorFlow.js** and the optimized **COCO-SSD** (`lite_mobilenet_v2`) neural model running real-time object detection directly inside the browser using WebGL hardware acceleration.
+- **Anti-Photography & Device Interception**: Flags when a student raises a mobile phone (`cell phone`) to photograph questions or query external sources. Includes consecutive 2-frame debouncing to prevent false alarms.
+- **Presence & Multi-Person Monitoring**: Flags student absence (`camera_absence`) or multiple people in the camera frame (`camera_multiple_persons`).
+- **Zero-Biometric Leak**: **Zero video frames, embeddings, or biometric recordings ever leave the student terminal**. All inferences are computed strictly client-side; only lightweight text telemetry events are sent to the teacher audit log.
+- **Teacher Discretion Toggle (`requireCamera`)**: Educators choose per evaluation whether camera proctoring is enabled or disabled. If disabled, the test runs with focus/tab telemetry only.
+- **Interactive Mirrored Viewfinder**: Mirrored live camera feed with real-time detection borders, status badges, and minimize/expand controls.
+
+### 📱 Full Mobile & Cross-Device Responsiveness
+- **Adaptive Abyssal UI**: Seamlessly scales from desktop ultra-wide monitors down to tablets and smartphones (iOS Safari, Android Chrome).
+- **Sticky Touch Navigator**: Mobile students get a smooth horizontal scrolling question navigator pinned below the exam header for quick jumping between questions.
+- **Mobile Camera View**: Automatically adapts into a collapsible floating card on mobile screens, preserving vertical reading space for questions.
+- **Mobile Navigation Drawer**: Responsive navbar with full access to navigation routes and connection status indicators.
 
 ### 🎲 Cryptographic Question Randomization
 - **Terminal Anti-Collusion**: Employs a cryptographically secure **Fisher-Yates shuffle** (`crypto.getRandomValues`) to assign a distinct question sequence to every student device. Students sitting side-by-side in computer labs see completely different question orders.
@@ -60,6 +75,8 @@ Operating on a **100% serverless architecture** powered by **Google Cloud Firest
 
 ### 🛡️ Anti-Cheat Telemetry Engine
 - **Tab & Window Focus Loss**: Detects when students switch browser tabs, open external applications, or move to secondary monitors (`visibilitychange` and `blur` events).
+- **Camera Cellphone & Photography Detection**: Computer vision flags students holding smartphones or cameras to photograph exam questions (`camera_phone_detected`).
+- **Absence & Multi-Person Alerts**: Flags when the student leaves the camera frame or when unauthorized persons enter (`camera_absence`, `camera_multiple_persons`).
 - **Right-Click & Context Menu Interception**: Prevents context menu shortcuts for text searches or external lookups.
 - **DevTools & Source Code Blocking**: Intercepts `F12`, `Ctrl+Shift+I`, `Ctrl+Shift+J`, and `Ctrl+U`.
 - **Copy / Paste Prevention**: Restricts clipboard shortcuts (`Ctrl+C`, `Ctrl+V`, `Cmd+C`, `Cmd+V`) during active exam sessions.
