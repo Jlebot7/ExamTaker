@@ -2,9 +2,6 @@ import { describe, it, expect } from 'vitest';
 import {
   evaluateDetectionFrame,
   createInitialTrackerState,
-  PHONE_SCORE_THRESHOLD,
-  PERSON_SCORE_THRESHOLD,
-  VIOLATION_COOLDOWN_MS,
   type DetectionPrediction,
 } from './cameraProctoringUtils';
 
