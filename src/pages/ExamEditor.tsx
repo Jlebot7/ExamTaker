@@ -11,7 +11,8 @@ import {
   FileText, 
   AlertCircle,
   Sparkles,
-  Shuffle
+  Shuffle,
+  Camera
 } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import { examService } from '../services/examService';
@@ -35,6 +36,7 @@ export const ExamEditor: React.FC = () => {
   const [maxViolations, setMaxViolations] = useState(3);
   const [isPublished, setIsPublished] = useState(true);
   const [randomizeQuestions, setRandomizeQuestions] = useState(true);
+  const [requireCamera, setRequireCamera] = useState(false);
 
   // Questions and Correct Answer Keys (default 4 options)
   const [questions, setQuestions] = useState<Question[]>([
@@ -80,6 +82,7 @@ export const ExamEditor: React.FC = () => {
         setMaxViolations(exam.maxViolations || 3);
         setIsPublished(exam.isPublished);
         setRandomizeQuestions(exam.randomizeQuestions !== false);
+        setRequireCamera(Boolean(exam.requireCamera));
         setQuestions(exam.questions || []);
 
         // Load isolated keys
@@ -311,6 +314,7 @@ export const ExamEditor: React.FC = () => {
             maxViolations: Number(maxViolations),
             isPublished,
             randomizeQuestions,
+            requireCamera,
           },
           questions,
           correctAnswers
@@ -324,6 +328,7 @@ export const ExamEditor: React.FC = () => {
             maxViolations: Number(maxViolations),
             isPublished,
             randomizeQuestions,
+            requireCamera,
             createdBy: user?.uid || 'teacher_demo_uid',
             createdByName: user?.displayName || 'Docente',
             questions,
@@ -503,6 +508,31 @@ export const ExamEditor: React.FC = () => {
             >
               <span className={`w-2 h-2 rounded-full ${randomizeQuestions ? 'bg-[#cbfffc] animate-pulse' : 'bg-slate-600'}`}></span>
               <span>{randomizeQuestions ? 'Aleatorio Activado' : 'Orden Fijo'}</span>
+            </button>
+          </div>
+
+          {/* Require Camera Proctoring Switch */}
+          <div className="pt-4 border-t border-white/8 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+            <div>
+              <span className="text-xs uppercase tracking-[0.08em] font-medium text-white flex items-center gap-1.5">
+                <Camera className="w-3.5 h-3.5 text-[#cbfffc]" />
+                <span>Supervisión por Cámara (Detección de Celulares y Plagio)</span>
+              </span>
+              <p className="text-[11px] text-[#bbc7c6] mt-0.5">
+                Exige al estudiante activar la cámara de su equipo (laptop, PC o celular) para detectar si toma fotos de la pantalla o consulta fuentes externas.
+              </p>
+            </div>
+            <button
+              type="button"
+              onClick={() => setRequireCamera(!requireCamera)}
+              className={`px-3.5 py-2 rounded-[6px] border text-xs font-medium uppercase tracking-wider flex items-center gap-2 transition shrink-0 ${
+                requireCamera
+                  ? 'surface-deep border-[#00827c] text-[#edfffe]'
+                  : 'surface-deep border-white/10 text-[#707777]'
+              }`}
+            >
+              <span className={`w-2 h-2 rounded-full ${requireCamera ? 'bg-[#cbfffc] animate-pulse' : 'bg-slate-600'}`}></span>
+              <span>{requireCamera ? 'Cámara Exigida' : 'Sin Cámara'}</span>
             </button>
           </div>
         </div>
