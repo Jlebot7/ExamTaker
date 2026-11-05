@@ -16,6 +16,8 @@ import { examService } from '../services/examService';
 import { studentService } from '../services/studentService';
 import { useServerTimer } from '../hooks/useServerTimer';
 import { useAntiCheat } from '../hooks/useAntiCheat';
+import { useCameraProctoring } from '../hooks/useCameraProctoring';
+import { CameraMonitorWidget } from '../components/exam/CameraMonitorWidget';
 import { shuffleWithSeed } from '../utils/shuffle';
 import type { Exam, Submission } from '../types';
 
@@ -113,7 +115,7 @@ export const StudentExam: React.FC = () => {
   });
 
   // Anti-cheat Monitoring Hook
-  const { violationCount, activeWarning, dismissWarning } = useAntiCheat({
+  const { violationCount, activeWarning, dismissWarning, triggerViolation } = useAntiCheat({
     examId: examId || '',
     studentUid: user?.uid || '',
     maxViolations: exam?.maxViolations || 3,
@@ -121,6 +123,29 @@ export const StudentExam: React.FC = () => {
     isActive: !loading && submission?.status === 'in_progress' && !isSubmittingFinal,
     onDisqualified: handleDisqualified,
   });
+
+  // Camera Proctoring Hook (Active when teacher specified requireCamera)
+  const isCameraRequired = Boolean(exam?.requireCamera);
+  const {
+    videoRef,
+    permissionState: cameraPermissionState,
+    errorMessage: cameraErrorMessage,
+    isModelLoading: isCameraModelLoading,
+    isModelReady: isCameraModelReady,
+    phoneDetected,
+    personCount,
+    requestCameraAccess,
+  } = useCameraProctoring({
+    isActive: !loading && submission?.status === 'in_progress' && !isSubmittingFinal && isCameraRequired,
+    onViolation: triggerViolation,
+  });
+
+  // Auto-request camera access on start if required
+  useEffect(() => {
+    if (isCameraRequired && !loading && submission?.status === 'in_progress') {
+      requestCameraAccess();
+    }
+  }, [isCameraRequired, loading, submission?.status, requestCameraAccess]);
 
   // Save selected option in real time
   const handleSelectOption = async (questionId: string, optionId: string) => {
@@ -331,7 +356,23 @@ export const StudentExam: React.FC = () => {
       <div className="flex-1 max-w-7xl w-full mx-auto p-3 sm:p-6 grid grid-cols-1 lg:grid-cols-4 gap-4 sm:gap-6 animate-fadeIn">
         {/* Left Column: Active Question Container */}
         <div className="lg:col-span-3 flex flex-col justify-between">
-          <div className="surface-card rounded-[16px] border border-white/8 p-6 sm:p-8 space-y-6">
+          {/* Mobile Camera Preview Widget (If Camera is Required) */}
+          {isCameraRequired && (
+            <div className="lg:hidden mb-4">
+              <CameraMonitorWidget
+                videoRef={videoRef}
+                permissionState={cameraPermissionState}
+                errorMessage={cameraErrorMessage}
+                isModelLoading={isCameraModelLoading}
+                isModelReady={isCameraModelReady}
+                phoneDetected={phoneDetected}
+                personCount={personCount}
+                onRequestCamera={requestCameraAccess}
+              />
+            </div>
+          )}
+
+          <div className="surface-card rounded-[16px] border border-white/8 p-4 sm:p-6 lg:p-8 space-y-5 sm:space-y-6">
             {/* Question Header */}
             <div className="flex items-center justify-between pb-4 border-b border-white/8">
               <div className="flex items-center gap-2">
@@ -398,45 +439,58 @@ export const StudentExam: React.FC = () => {
           </div>
 
           {/* Navigation Controls Below Question */}
-          <div className="flex items-center justify-between gap-4 mt-6">
+          <div className="flex items-center justify-between gap-2 sm:gap-4 mt-6">
             <button
               type="button"
               disabled={currentQuestionIndex === 0}
               onClick={() => setCurrentQuestionIndex(prev => Math.max(0, prev - 1))}
-              className="inline-flex items-center gap-2 px-4 py-2 rounded-[6px] surface-card border border-white/8 text-[#bbc7c6] hover:text-white hover:bg-[#025a53] text-xs font-medium uppercase tracking-wider transition disabled:opacity-40 disabled:cursor-not-allowed"
+              className="inline-flex items-center gap-1.5 sm:gap-2 px-3 sm:px-4 py-2 rounded-[6px] surface-card border border-white/8 text-[#bbc7c6] hover:text-white hover:bg-[#025a53] text-xs font-medium uppercase tracking-wider transition disabled:opacity-40 disabled:cursor-not-allowed shrink-0"
             >
-              <ArrowLeft className="w-4 h-4" />
+              <ArrowLeft className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
               <span>Anterior</span>
             </button>
 
-            <span className="text-xs text-[#bbc7c6] font-mono">
-              {answeredCount} de {totalQuestions} respondidas
+            <span className="text-[11px] sm:text-xs text-[#bbc7c6] font-mono text-center truncate px-1">
+              {answeredCount}/{totalQuestions} <span className="hidden xs:inline">respondidas</span>
             </span>
 
             {currentQuestionIndex < totalQuestions - 1 ? (
               <button
                 type="button"
                 onClick={() => setCurrentQuestionIndex(prev => Math.min(totalQuestions - 1, prev + 1))}
-                className="btn-bioluminescent rounded-[6px] px-4 py-2 text-xs font-medium uppercase tracking-wider inline-flex items-center gap-2"
+                className="btn-bioluminescent rounded-[6px] px-3 sm:px-4 py-2 text-xs font-medium uppercase tracking-wider inline-flex items-center gap-1.5 sm:gap-2 shrink-0"
               >
                 <span>Siguiente</span>
-                <ArrowRight className="w-4 h-4" />
+                <ArrowRight className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
               </button>
             ) : (
               <button
                 type="button"
                 onClick={() => setShowSubmitModal(true)}
-                className="btn-aurora rounded-[6px] px-4 py-2 text-xs font-medium uppercase tracking-wider inline-flex items-center gap-2 text-white"
+                className="btn-aurora rounded-[6px] px-3 sm:px-4 py-2 text-xs font-medium uppercase tracking-wider inline-flex items-center gap-1.5 sm:gap-2 text-[#012624] shrink-0"
               >
-                <span>Revisar y Entregar</span>
-                <Send className="w-4 h-4" />
+                <span>Entregar</span>
+                <Send className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
               </button>
             )}
           </div>
         </div>
 
-        {/* Right Column: Question Navigator Palette (Desktop) */}
-        <div className="hidden lg:block lg:col-span-1">
+        {/* Right Column: Question Navigator Palette & Camera Monitor (Desktop) */}
+        <div className="hidden lg:block lg:col-span-1 space-y-4">
+          {isCameraRequired && (
+            <CameraMonitorWidget
+              videoRef={videoRef}
+              permissionState={cameraPermissionState}
+              errorMessage={cameraErrorMessage}
+              isModelLoading={isCameraModelLoading}
+              isModelReady={isCameraModelReady}
+              phoneDetected={phoneDetected}
+              personCount={personCount}
+              onRequestCamera={requestCameraAccess}
+            />
+          )}
+
           <div className="surface-card rounded-[16px] border border-white/8 p-5 sticky top-20">
             <h3 className="text-[10px] font-medium text-[#bbc7c6] uppercase tracking-[0.1em] mb-4">
               Mapa de Preguntas
