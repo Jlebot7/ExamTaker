@@ -1,9 +1,7 @@
 import React, { useState } from 'react';
 import { 
   Camera, 
-  ShieldAlert, 
   CheckCircle2, 
-  AlertTriangle, 
   Minimize2, 
   Maximize2, 
   RefreshCw, 
