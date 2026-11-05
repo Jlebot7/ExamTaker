@@ -4,6 +4,16 @@ export type SubmissionStatus =
   | 'timed_out' 
   | 'disqualified';
 
+export interface OpenQuestionGrade {
+  points: number;
+  feedback?: string;
+  aiSuggestedPoints?: number;
+  aiRationale?: string;
+  strengths?: string[];
+  improvements?: string[];
+  gradedAt?: number;
+}
+
 export interface Submission {
   studentUid: string;
   studentName: string;
@@ -11,11 +21,12 @@ export interface Submission {
   startedAt: number; // ServerValue.TIMESTAMP
   submittedAt: number | null;
   status: SubmissionStatus;
-  answers: Record<string, string | string[]>; // questionId -> optionId or optionId[]
+  answers: Record<string, string | string[]>; // questionId -> optionId or text answer
   violationCount: number;
   finalScore: number | null;
   maxScore: number | null;
   questionOrder?: string[]; // Orden aleatorizado de question IDs asignado a este estudiante
+  openQuestionScores?: Record<string, OpenQuestionGrade>; // Calificaciones y retroalimentación de preguntas abiertas
 }
 
 export interface StudentSession {
