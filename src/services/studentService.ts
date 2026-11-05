@@ -10,6 +10,8 @@ import {
   serverTimestamp,
   Timestamp,
   writeBatch,
+  query,
+  where,
   type DocumentData
 } from 'firebase/firestore';
 import { db, isFirebaseConfigured } from './firebaseConfig';
@@ -18,7 +20,8 @@ import type {
   SubmissionStatus,
   IntegrityLog,
   ViolationEventType,
-  ExamKey
+  ExamKey,
+  OpenQuestionGrade
 } from '../types';
 import {
   getMockSubmissions,
@@ -30,7 +33,7 @@ import {
   getMockExamKey
 } from './mockStorage';
 import { shuffleArray } from '../utils/shuffle';
-import { gradeSubmission } from '../utils/grading';
+import { gradeSubmission, type GradeResult } from '../utils/grading';
 
 let serverTimeOffset = 0;
 
@@ -288,7 +291,9 @@ export const studentService = {
   },
 
   /**
-   * Teacher-only: grades every finished submission that has no score yet and writes the result.
+   * Teacher-only: grades finished submissions that have no score yet.
+   * If the exam contains open-ended questions, it only auto-grades submissions
+   * that are disqualified (0 pts) or that already have their openQuestionScores recorded.
    * Returns how many submissions were graded.
    */
   async gradePendingSubmissions(
@@ -296,26 +301,101 @@ export const studentService = {
     submissions: Record<string, Submission>,
     examKey: ExamKey
   ): Promise<number> {
-    const pending = Object.entries(submissions).filter(
-      ([, sub]) => sub.status !== 'in_progress' && sub.finalScore === null
-    );
+    const hasOpenQuestions = Object.values(examKey.keys).some(k => k.correctOptionIds.length === 0);
+
+    const pending = Object.entries(submissions).filter(([, sub]) => {
+      if (sub.status === 'in_progress' || sub.finalScore !== null) return false;
+      // If disqualified, auto-grade to 0 immediately
+      if (sub.status === 'disqualified') return true;
+      // If exam has open-ended questions, only auto-grade if the teacher already graded the open questions
+      if (hasOpenQuestions) {
+        return Boolean(sub.openQuestionScores && Object.keys(sub.openQuestionScores).length > 0);
+      }
+      return true;
+    });
+
     if (pending.length === 0) return 0;
 
     if (isFirebaseConfigured) {
       const batch = writeBatch(db);
       pending.forEach(([uid, sub]) => {
-        const { finalScore, maxScore } = gradeSubmission(sub.answers, examKey, sub.status);
+        const { finalScore, maxScore } = gradeSubmission(sub.answers, examKey, sub.status, sub.openQuestionScores);
         batch.update(doc(db, 'exams', examId, 'submissions', uid), { finalScore, maxScore });
       });
       await batch.commit();
     } else {
       pending.forEach(([, sub]) => {
-        const { finalScore, maxScore } = gradeSubmission(sub.answers, examKey, sub.status);
+        const { finalScore, maxScore } = gradeSubmission(sub.answers, examKey, sub.status, sub.openQuestionScores);
         saveMockSubmission(examId, { ...sub, finalScore, maxScore });
       });
     }
 
     return pending.length;
+  },
+
+  /**
+   * Teacher-only: records manual and AI-assisted scores for open-ended questions
+   * and computes the new finalScore atomically.
+   */
+  async saveManualOpenGrades(
+    examId: string,
+    studentUid: string,
+    openQuestionScores: Record<string, OpenQuestionGrade>,
+    examKey: ExamKey,
+    submissionStatus: SubmissionStatus
+  ): Promise<GradeResult> {
+    const sub = await this.getSubmission(examId, studentUid);
+    const answers = sub?.answers || {};
+    const { finalScore, maxScore } = gradeSubmission(
+      answers,
+      examKey,
+      submissionStatus,
+      openQuestionScores
+    );
+
+    if (isFirebaseConfigured) {
+      const subRef = doc(db, 'exams', examId, 'submissions', studentUid);
+      await updateDoc(subRef, {
+        finalScore,
+        maxScore,
+        openQuestionScores,
+      });
+    } else {
+      const current = sub || ({} as Submission);
+      saveMockSubmission(examId, {
+        ...current,
+        finalScore,
+        maxScore,
+        openQuestionScores,
+      });
+    }
+
+    return { finalScore, maxScore };
+  },
+
+  /**
+   * Lookup a student's submission by examId and their student code / DNI (for the public results search board)
+   */
+  async findSubmissionByCode(examId: string, studentCode: string): Promise<Submission | null> {
+    const cleanExamId = examId.trim();
+    const cleanCode = studentCode.trim().toLowerCase();
+    if (!cleanExamId || !cleanCode) return null;
+
+    if (isFirebaseConfigured) {
+      const subsRef = collection(db, 'exams', cleanExamId, 'submissions');
+      const q = query(subsRef, where('studentCode', '==', studentCode.trim()));
+      const snap = await getDocs(q);
+      if (snap.empty) {
+        return null;
+      }
+      return toSubmission(snap.docs[0].data());
+    } else {
+      const subs = getMockSubmissions(cleanExamId);
+      const found = Object.values(subs).find(
+        s => s.studentCode.trim().toLowerCase() === cleanCode
+      );
+      return found || null;
+    }
   },
 
   /**
