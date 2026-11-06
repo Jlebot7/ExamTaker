@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { useNavigate, useSearchParams } from 'react-router-dom';
+import { useNavigate, useSearchParams, Link } from 'react-router-dom';
 import { 
   FileText, 
   User, 
@@ -11,7 +11,8 @@ import {
   CheckCircle2, 
   KeyRound, 
   ShieldAlert,
-  Camera 
+  Camera,
+  Search
 } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import { examService } from '../services/examService';
@@ -118,6 +119,20 @@ export const StudentEntry: React.FC = () => {
     <div className="min-h-[calc(100vh-4rem)] flex items-center justify-center p-4 sm:p-6 lg:p-8 animate-fadeIn">
       <div className="w-full max-w-lg">
         <div className="surface-card rounded-[16px] p-6 sm:p-8 border border-white/8 relative">
+          {/* Mode Switcher Tabs */}
+          <div className="flex rounded-[6px] surface-deep p-1 mb-6 border border-white/8">
+            <span className="flex-1 py-1.5 text-center text-xs font-medium uppercase tracking-wider rounded-[4px] bg-[#00827c] text-white">
+              Rendir Examen
+            </span>
+            <Link
+              to="/results"
+              className="flex-1 py-1.5 text-center text-xs font-medium uppercase tracking-wider rounded-[4px] text-[#bbc7c6] hover:text-[#edfffe] hover:bg-white/5 transition flex items-center justify-center gap-1.5"
+            >
+              <Search className="w-3.5 h-3.5 text-[#00827c]" />
+              <span>Ver Resultados</span>
+            </Link>
+          </div>
+
           {/* Header */}
           <div className="text-center mb-6">
             <div className="inline-flex items-center justify-center w-12 h-12 rounded-[6px] surface-deep border border-white/10 mb-3 text-[#edfffe]">
