@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { 
   Sparkles, 
   X, 
@@ -56,21 +56,7 @@ export const AiExamGeneratorModal: React.FC<AiExamGeneratorModalProps> = ({
   const [generatedQuestions, setGeneratedQuestions] = useState<GeneratedQuestionItem[]>([]);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
 
-  // Load stored settings and discover available models
-  useEffect(() => {
-    if (isOpen) {
-      const storedKey = getStoredGroqKey();
-      setApiKey(storedKey);
-      setSelectedModel(getStoredGroqModel());
-      if (!storedKey) {
-        setShowKeyConfig(true);
-      } else {
-        loadModelsForApiKey(storedKey);
-      }
-    }
-  }, [isOpen]);
-
-  const loadModelsForApiKey = async (key: string) => {
+  const loadModelsForApiKey = useCallback(async (key: string) => {
     if (!key.trim()) {
       setAvailableModels([]);
       return;
@@ -94,7 +80,21 @@ export const AiExamGeneratorModal: React.FC<AiExamGeneratorModalProps> = ({
     } finally {
       setLoadingModels(false);
     }
-  };
+  }, [selectedModel]);
+
+  // Load stored settings and discover available models
+  useEffect(() => {
+    if (isOpen) {
+      const storedKey = getStoredGroqKey();
+      setApiKey(storedKey);
+      setSelectedModel(getStoredGroqModel());
+      if (!storedKey) {
+        setShowKeyConfig(true);
+      } else {
+        loadModelsForApiKey(storedKey);
+      }
+    }
+  }, [isOpen, loadModelsForApiKey]);
 
   if (!isOpen) return null;
 
