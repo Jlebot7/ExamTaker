@@ -62,6 +62,7 @@ export const ExamEditor: React.FC = () => {
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [isWordModalOpen, setIsWordModalOpen] = useState(false);
   const [isAiModalOpen, setIsAiModalOpen] = useState(false);
+  const [openRubrics, setOpenRubrics] = useState<Record<string, { rubric: string; idealAnswer: string }>>({});
 
   // Load existing exam if editing
   useEffect(() => {
@@ -85,14 +86,22 @@ export const ExamEditor: React.FC = () => {
         setRequireCamera(Boolean(exam.requireCamera));
         setQuestions(exam.questions || []);
 
-        // Load isolated keys
+        // Load isolated keys and open rubrics
         const examKey = await examService.getExamKey(examId);
         if (examKey?.keys) {
           const map: Record<string, string[]> = {};
+          const rubricMap: Record<string, { rubric: string; idealAnswer: string }> = {};
           Object.entries(examKey.keys).forEach(([qId, val]) => {
-            map[qId] = val.correctOptionIds;
+            map[qId] = val.correctOptionIds || [];
+            if (val.rubric || val.idealAnswer) {
+              rubricMap[qId] = {
+                rubric: val.rubric || '',
+                idealAnswer: val.idealAnswer || '',
+              };
+            }
           });
           setCorrectAnswers(map);
+          setOpenRubrics(rubricMap);
         }
       } catch (err) {
         console.error('Error al cargar examen:', err);
@@ -115,6 +124,12 @@ export const ExamEditor: React.FC = () => {
         { id: 'tf_true', text: 'Verdadero' },
         { id: 'tf_false', text: 'Falso' },
       ];
+    } else if (type === 'open_ended') {
+      options = [];
+      setOpenRubrics(prev => ({
+        ...prev,
+        [newQId]: { rubric: '', idealAnswer: '' },
+      }));
     } else {
       options = [
         { id: 'opt_1', text: '' },
@@ -174,13 +189,18 @@ export const ExamEditor: React.FC = () => {
     }));
 
     const newCorrectMap: Record<string, string[]> = {};
+    const newRubricMap: Record<string, { rubric: string; idealAnswer: string }> = {};
     generated.forEach(item => {
       newCorrectMap[item.id] = item.correctOptionIds;
+      if (item.rubric || item.idealAnswer) {
+        newRubricMap[item.id] = { rubric: item.rubric || '', idealAnswer: item.idealAnswer || '' };
+      }
     });
 
     if (replaceExisting) {
       setQuestions(newQuestions);
       setCorrectAnswers(newCorrectMap);
+      setOpenRubrics(newRubricMap);
     } else {
       setQuestions(prev => {
         if (prev.length === 1 && !prev[0].prompt && prev[0].options.every(o => !o.text)) {
@@ -189,6 +209,7 @@ export const ExamEditor: React.FC = () => {
         return [...prev, ...newQuestions];
       });
       setCorrectAnswers(prev => ({ ...prev, ...newCorrectMap }));
+      setOpenRubrics(prev => ({ ...prev, ...newRubricMap }));
     }
   };
 
@@ -289,16 +310,18 @@ export const ExamEditor: React.FC = () => {
         setErrorMessage(`La pregunta #${i + 1} no tiene enunciado.`);
         return;
       }
-      for (let j = 0; j < q.options.length; j++) {
-        if (!q.options[j].text.trim()) {
-          setErrorMessage(`La opción #${j + 1} de la pregunta #${i + 1} está vacía.`);
+      if (q.type !== 'open_ended') {
+        for (let j = 0; j < q.options.length; j++) {
+          if (!q.options[j].text.trim()) {
+            setErrorMessage(`La opción #${j + 1} de la pregunta #${i + 1} está vacía.`);
+            return;
+          }
+        }
+        const correctList = correctAnswers[q.id];
+        if (!correctList || correctList.length === 0) {
+          setErrorMessage(`Debes marcar la respuesta correcta en la pregunta #${i + 1}.`);
           return;
         }
-      }
-      const correctList = correctAnswers[q.id];
-      if (!correctList || correctList.length === 0) {
-        setErrorMessage(`Debes marcar la respuesta correcta en la pregunta #${i + 1}.`);
-        return;
       }
     }
 
@@ -317,7 +340,8 @@ export const ExamEditor: React.FC = () => {
             requireCamera,
           },
           questions,
-          correctAnswers
+          correctAnswers,
+          openRubrics
         );
       } else {
         await examService.createExam(
@@ -334,7 +358,8 @@ export const ExamEditor: React.FC = () => {
             questions,
           },
           questions,
-          correctAnswers
+          correctAnswers,
+          openRubrics
         );
       }
       navigate('/teacher');
@@ -584,6 +609,15 @@ export const ExamEditor: React.FC = () => {
                 <Plus className="w-3.5 h-3.5 text-[#fde9ff]" />
                 <span>+ V / F</span>
               </button>
+
+              <button
+                type="button"
+                onClick={() => addQuestion('open_ended')}
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md bg-[#003734] hover:bg-white/10 border border-white/15 text-[#edfffe] text-xs font-medium uppercase tracking-[0.08em] transition"
+              >
+                <Plus className="w-3.5 h-3.5 text-[#cbfffc]" />
+                <span>+ Pregunta Abierta</span>
+              </button>
             </div>
           </div>
 
@@ -600,7 +634,11 @@ export const ExamEditor: React.FC = () => {
                     {qIdx + 1}
                   </span>
                   <span className="text-xs font-medium text-[#edfffe] uppercase tracking-[0.08em]">
-                    {question.type === 'true_false' ? 'Verdadero o Falso' : 'Opción Múltiple'}
+                    {question.type === 'true_false' 
+                      ? 'Verdadero o Falso' 
+                      : question.type === 'open_ended'
+                      ? 'Pregunta Abierta / Desarrollo (IA)'
+                      : 'Opción Múltiple'}
                   </span>
                 </div>
 
@@ -638,78 +676,142 @@ export const ExamEditor: React.FC = () => {
                   required
                   value={question.prompt}
                   onChange={e => updateQuestionPrompt(qIdx, e.target.value)}
-                  placeholder="Ej: ¿Cuál es la principal ventaja de utilizar un token JWT frente a sesiones tradicionales con estado?"
+                  placeholder={
+                    question.type === 'open_ended'
+                      ? 'Ej: Explica cómo opera el protocolo TLS en el establecimiento de una conexión segura...'
+                      : 'Ej: ¿Cuál es la principal ventaja de utilizar un token JWT frente a sesiones tradicionales con estado?'
+                  }
                   className="w-full bg-[#011d1c] border border-white/15 focus:border-[#cbfffc] rounded-md px-4 py-2 text-xs text-white placeholder-[#707777] outline-none transition"
                 />
               </div>
 
-              {/* Options Section */}
-              <div className="space-y-2 pt-2">
-                <div className="flex items-center justify-between mb-1">
-                  <span className="text-[11px] uppercase tracking-[0.06em] text-[#bbc7c6]">
-                    Opciones (marca la alternativa correcta que se resguardará en la clave secreta):
-                  </span>
-                  {question.type === 'single_choice' && (
-                    <button
-                      type="button"
-                      onClick={() => addOption(qIdx)}
-                      className="text-[11px] uppercase tracking-[0.08em] text-[#cbfffc] hover:underline font-medium transition"
-                    >
-                      + Añadir opción
-                    </button>
-                  )}
+              {/* Options or Rubric Section */}
+              {question.type === 'open_ended' ? (
+                <div className="space-y-3 pt-2">
+                  <div className="p-4 rounded-xl bg-[#011d1c] border border-[#00827c]/40 space-y-3">
+                    <div className="flex items-center gap-2 text-[#edfffe]">
+                      <Sparkles className="w-4 h-4 text-[#cbfffc]" />
+                      <span className="text-xs font-medium uppercase tracking-[0.08em]">
+                        Rúbrica y Criterios de Evaluación para la IA y el Docente (Privado)
+                      </span>
+                    </div>
+                    <p className="text-[11px] text-[#bbc7c6] leading-relaxed">
+                      Esta información se resguarda en la clave secreta y nunca se expone a los alumnos. La IA evaluadora (GPT-OSS 120B) y tú la utilizarán para calificar el significado y la coherencia semántica de las respuestas sin exigir coincidencia exacta de texto.
+                    </p>
+
+                    <div>
+                      <label className="block text-[11px] font-mono text-[#edfffe] mb-1">
+                        Criterios Clave / Rúbrica de Aprobación:
+                      </label>
+                      <textarea
+                        rows={3}
+                        value={openRubrics[question.id]?.rubric || ''}
+                        onChange={e => {
+                          const val = e.target.value;
+                          setOpenRubrics(prev => ({
+                            ...prev,
+                            [question.id]: {
+                              rubric: val,
+                              idealAnswer: prev[question.id]?.idealAnswer || '',
+                            },
+                          }));
+                        }}
+                        placeholder="Ej: El alumno debe explicar al menos 2 conceptos centrales, fundamentar su impacto en el rendimiento y utilizar terminología técnica adecuada."
+                        className="w-full bg-[#003734]/30 border border-white/10 focus:border-[#cbfffc] rounded-md px-3 py-2 text-xs text-white placeholder-[#707777] outline-none transition"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-[11px] font-mono text-[#edfffe] mb-1">
+                        Respuesta Modelo / Conceptos Indispensables (Opcional):
+                      </label>
+                      <textarea
+                        rows={2}
+                        value={openRubrics[question.id]?.idealAnswer || ''}
+                        onChange={e => {
+                          const val = e.target.value;
+                          setOpenRubrics(prev => ({
+                            ...prev,
+                            [question.id]: {
+                              rubric: prev[question.id]?.rubric || '',
+                              idealAnswer: val,
+                            },
+                          }));
+                        }}
+                        placeholder="Ej: Respuesta modelo de referencia para orientar la corrección..."
+                        className="w-full bg-[#003734]/30 border border-white/10 focus:border-[#cbfffc] rounded-md px-3 py-2 text-xs text-white placeholder-[#707777] outline-none transition"
+                      />
+                    </div>
+                  </div>
                 </div>
-
-                {question.options.map((opt, optIdx) => {
-                  const isCorrect = (correctAnswers[question.id] || []).includes(opt.id);
-
-                  return (
-                    <div
-                      key={opt.id}
-                      className={`flex items-center gap-3 p-2.5 rounded-md border transition ${
-                        isCorrect
-                          ? 'bg-[#011d1c] border-[#00827c]'
-                          : 'bg-[#011d1c]/60 border-white/10 hover:border-white/20'
-                      }`}
-                    >
-                      {/* Mark Correct Radio */}
+              ) : (
+                <div className="space-y-2 pt-2">
+                  <div className="flex items-center justify-between mb-1">
+                    <span className="text-[11px] uppercase tracking-[0.06em] text-[#bbc7c6]">
+                      Opciones (marca la alternativa correcta que se resguardará en la clave secreta):
+                    </span>
+                    {question.type === 'single_choice' && (
                       <button
                         type="button"
-                        onClick={() => setCorrectOption(question.id, opt.id)}
-                        title={isCorrect ? 'Opción Correcta Marcada' : 'Marcar como Respuesta Correcta'}
-                        className={`w-5 h-5 shrink-0 rounded-md flex items-center justify-center border transition ${
+                        onClick={() => addOption(qIdx)}
+                        className="text-[11px] uppercase tracking-[0.08em] text-[#cbfffc] hover:underline font-medium transition"
+                      >
+                        + Añadir opción
+                      </button>
+                    )}
+                  </div>
+
+                  {question.options.map((opt, optIdx) => {
+                    const isCorrect = (correctAnswers[question.id] || []).includes(opt.id);
+
+                    return (
+                      <div
+                        key={opt.id}
+                        className={`flex items-center gap-3 p-2.5 rounded-md border transition ${
                           isCorrect
-                            ? 'bg-[#00827c] border-[#cbfffc] text-[#012624]'
-                            : 'border-white/20 hover:border-[#cbfffc]'
+                            ? 'bg-[#011d1c] border-[#00827c]'
+                            : 'bg-[#011d1c]/60 border-white/10 hover:border-white/20'
                         }`}
                       >
-                        {isCorrect && <CheckCircle2 className="w-3.5 h-3.5" />}
-                      </button>
-
-                      {/* Option text */}
-                      <input
-                        type="text"
-                        required
-                        value={opt.text}
-                        onChange={e => updateOptionText(qIdx, optIdx, e.target.value)}
-                        placeholder={`Opción ${optIdx + 1}`}
-                        className="flex-1 bg-transparent text-xs text-white placeholder-[#707777] outline-none"
-                      />
-
-                      {/* Remove Option Button */}
-                      {question.type === 'single_choice' && question.options.length > 2 && (
+                        {/* Mark Correct Radio */}
                         <button
                           type="button"
-                          onClick={() => removeOption(qIdx, optIdx)}
-                          className="p-1 text-[#707777] hover:text-rose-400 transition"
+                          onClick={() => setCorrectOption(question.id, opt.id)}
+                          title={isCorrect ? 'Opción Correcta Marcada' : 'Marcar como Respuesta Correcta'}
+                          className={`w-5 h-5 shrink-0 rounded-md flex items-center justify-center border transition ${
+                            isCorrect
+                              ? 'bg-[#00827c] border-[#cbfffc] text-[#012624]'
+                              : 'border-white/20 hover:border-[#cbfffc]'
+                          }`}
                         >
-                          <Trash2 className="w-3.5 h-3.5" />
+                          {isCorrect && <CheckCircle2 className="w-3.5 h-3.5" />}
                         </button>
-                      )}
-                    </div>
-                  );
-                })}
-              </div>
+
+                        {/* Option text */}
+                        <input
+                          type="text"
+                          required
+                          value={opt.text}
+                          onChange={e => updateOptionText(qIdx, optIdx, e.target.value)}
+                          placeholder={`Opción ${optIdx + 1}`}
+                          className="flex-1 bg-transparent text-xs text-white placeholder-[#707777] outline-none"
+                        />
+
+                        {/* Remove Option Button */}
+                        {question.type === 'single_choice' && question.options.length > 2 && (
+                          <button
+                            type="button"
+                            onClick={() => removeOption(qIdx, optIdx)}
+                            className="p-1 text-[#707777] hover:text-rose-400 transition"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </button>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
             </div>
           ))}
         </div>
