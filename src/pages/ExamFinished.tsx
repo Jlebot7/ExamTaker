@@ -10,7 +10,9 @@ import {
   ShieldAlert,
   Percent,
   FileCheck,
-  RotateCcw
+  RotateCcw,
+  Sparkles,
+  Search
 } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import { examService } from '../services/examService';
@@ -141,12 +143,12 @@ export const ExamFinished: React.FC = () => {
           )}
 
           {finalScore === null && (
-            <div className="mb-6 p-6 rounded-[16px] surface-deep border border-white/10 text-center">
-              <span className="text-[10px] uppercase tracking-[0.14em] font-medium text-[#bbc7c6]">
-                Calificación pendiente
+            <div className="mb-6 p-6 rounded-[16px] surface-deep border border-amber-500/30 text-center space-y-2">
+              <span className="text-[10px] uppercase tracking-[0.14em] font-medium text-amber-300 block">
+                Evaluación Entregada • Revisión Pedagógica en Curso
               </span>
-              <p className="text-xs text-[#bbc7c6] mt-2">
-                Tu examen fue recibido. La nota aparecerá aquí cuando el docente procese las entregas.
+              <p className="text-xs text-[#bbc7c6] leading-relaxed">
+                Tu examen incluye preguntas de desarrollo. Tu docente está revisando tus respuestas con asistencia de IA (openai/gpt-oss-120b). Tu calificación y retroalimentación aparecerán aquí automáticamente en tiempo real una vez publicadas.
               </p>
             </div>
           )}
@@ -214,6 +216,69 @@ export const ExamFinished: React.FC = () => {
             </div>
           )}
 
+          {/* Feedback de Preguntas Abiertas (si ya fue calificado) */}
+          {submission?.openQuestionScores && Object.keys(submission.openQuestionScores).length > 0 && (
+            <div className="mb-6 p-4 rounded-[12px] surface-deep border border-[#00827c]/40 text-left space-y-4">
+              <div className="flex items-center gap-2 pb-2 border-b border-white/8">
+                <Sparkles className="w-4 h-4 text-emerald-300" />
+                <h3 className="text-xs uppercase tracking-wider font-semibold text-white">
+                  Retroalimentación Pedagógica (Preguntas Abiertas)
+                </h3>
+              </div>
+
+              <div className="space-y-3">
+                {Object.entries(submission.openQuestionScores).map(([qId, grade]) => {
+                  const question = exam?.questions.find(q => q.id === qId);
+                  const studentAnswer = submission.answers?.[qId] || '(Sin respuesta)';
+                  return (
+                    <div key={qId} className="p-3 rounded-[8px] surface-card border border-white/8 space-y-2">
+                      <div className="flex items-start justify-between gap-2">
+                        <span className="text-xs font-medium text-white">
+                          {question?.prompt || `Pregunta ${qId}`}
+                        </span>
+                        <span className="text-xs font-mono px-2 py-0.5 rounded-[4px] surface-deep text-emerald-300 border border-emerald-500/30 whitespace-nowrap">
+                          {grade.score} / {grade.maxPoints} pts
+                        </span>
+                      </div>
+
+                      <div className="text-[11px] text-[#bbc7c6] p-2 rounded-[6px] surface-deep italic border-l-2 border-[#00827c]">
+                        &quot;{studentAnswer}&quot;
+                      </div>
+
+                      {(grade.feedback || grade.rationale) && (
+                        <p className="text-xs text-[#edfffe] leading-relaxed">
+                          {grade.feedback || grade.rationale}
+                        </p>
+                      )}
+
+                      {grade.strengths && grade.strengths.length > 0 && (
+                        <div className="text-[11px] text-emerald-300 space-y-0.5">
+                          <span className="font-semibold text-emerald-400">Puntos fuertes:</span>
+                          <ul className="list-disc list-inside space-y-0.5 text-[#bbc7c6]">
+                            {grade.strengths.map((s, idx) => (
+                              <li key={idx}>{s}</li>
+                            ))}
+                          </ul>
+                        </div>
+                      )}
+
+                      {grade.improvements && grade.improvements.length > 0 && (
+                        <div className="text-[11px] text-amber-300 space-y-0.5">
+                          <span className="font-semibold text-amber-400">Aspectos a mejorar:</span>
+                          <ul className="list-disc list-inside space-y-0.5 text-[#bbc7c6]">
+                            {grade.improvements.map((imp, idx) => (
+                              <li key={idx}>{imp}</li>
+                            ))}
+                          </ul>
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+
           {/* Details Card */}
           <div className="p-4 rounded-[6px] surface-deep border border-white/8 text-left space-y-3 mb-6">
             <div className="flex items-center justify-between text-xs pb-2 border-b border-white/8">
@@ -259,6 +324,14 @@ export const ExamFinished: React.FC = () => {
 
           {/* Return & Re-entry buttons */}
           <div className="flex flex-col gap-2.5">
+            <Link
+              to="/results"
+              className="w-full inline-flex items-center justify-center gap-2 py-3 px-4 rounded-[6px] surface-deep hover:bg-[#025a53] text-[#edfffe] hover:text-white border border-[#00827c]/40 text-xs font-medium uppercase tracking-wider transition"
+            >
+              <Search className="w-4 h-4 text-emerald-300" />
+              <span>Consultar en el Tablero de Resultados</span>
+            </Link>
+
             <Link
               to={`/student?code=${examId}`}
               className="w-full inline-flex items-center justify-center gap-2 py-3 px-4 rounded-[6px] surface-deep hover:bg-[#025a53] text-[#edfffe] hover:text-white border border-white/10 text-xs font-medium uppercase tracking-wider transition"
