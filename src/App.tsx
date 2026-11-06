@@ -10,6 +10,7 @@ import { ExamEditor } from './pages/ExamEditor';
 import { ExamAudit } from './pages/ExamAudit';
 import { StudentExam } from './pages/StudentExam';
 import { ExamFinished } from './pages/ExamFinished';
+import { ResultsLookupPage } from './pages/ResultsLookupPage';
 
 // Protected Route wrapper for Teacher Area
 const TeacherRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => {
@@ -42,6 +43,8 @@ export function App() {
               <Route path="/" element={<LandingPage />} />
               <Route path="/teacher/login" element={<TeacherAuth />} />
               <Route path="/student" element={<StudentEntry />} />
+              <Route path="/results" element={<ResultsLookupPage />} />
+              <Route path="/student/results" element={<ResultsLookupPage />} />
 
               {/* Teacher Protected Routes */}
               <Route
