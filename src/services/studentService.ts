@@ -14,7 +14,8 @@ import {
   where,
   type DocumentData
 } from 'firebase/firestore';
-import { db, isFirebaseConfigured } from './firebaseConfig';
+import { db, auth, isFirebaseConfigured } from './firebaseConfig';
+import { signInAnonymously } from 'firebase/auth';
 import type {
   Submission,
   SubmissionStatus,
@@ -382,6 +383,13 @@ export const studentService = {
     if (!cleanExamId || !cleanCode) return null;
 
     if (isFirebaseConfigured) {
+      if (auth && !auth.currentUser) {
+        try {
+          await signInAnonymously(auth);
+        } catch (authErr) {
+          console.warn('Anonymous sign-in for results query:', authErr);
+        }
+      }
       const subsRef = collection(db, 'exams', cleanExamId, 'submissions');
       const q = query(subsRef, where('studentCode', '==', studentCode.trim()));
       const snap = await getDocs(q);
