@@ -78,9 +78,12 @@ service cloud.firestore {
             + duration.value(int(examData().durationMinutes) + 1, 'm');
         }
 
-        allow read: if isStudent()
+        allow get: if isStudent()
           || isExamOwner(examId)
-          || (resource.data.status in ['submitted', 'timed_out', 'disqualified'] && resource.data.finalScore != null);
+          || (resource.data.status in ['submitted', 'timed_out', 'disqualified']);
+
+        allow list: if isExamOwner(examId)
+          || signedIn();
 
         // Creación: siempre "en progreso", sin nota, con la hora del servidor.
         allow create: if isStudent()
