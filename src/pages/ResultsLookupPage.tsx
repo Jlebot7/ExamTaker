@@ -346,7 +346,7 @@ export const ResultsLookupPage: React.FC = () => {
                             {question?.prompt || `Pregunta ${qId}`}
                           </span>
                           <span className="text-xs font-mono px-2 py-0.5 rounded-[4px] surface-deep text-emerald-300 border border-emerald-500/30 whitespace-nowrap">
-                            {grade.score} / {grade.maxPoints} pts
+                            {grade.points} / {question?.points || 1} pts
                           </span>
                         </div>
 
@@ -354,12 +354,12 @@ export const ResultsLookupPage: React.FC = () => {
                           &quot;{studentAns}&quot;
                         </div>
 
-                        {(grade.feedback || grade.rationale) && (
+                        {(grade.feedback || grade.aiRationale) && (
                           <div className="text-xs text-[#edfffe] leading-relaxed space-y-1">
                             <span className="text-[10px] uppercase font-semibold text-[#00827c] block">
                               Justificación Pedagógica:
                             </span>
-                            <p>{grade.feedback || grade.rationale}</p>
+                            <p>{grade.feedback || grade.aiRationale}</p>
                           </div>
                         )}
 
