@@ -33,10 +33,22 @@ Operating on a **100% serverless architecture** powered by **Google Cloud Firest
 
 ### 🤖 Groq AI Exam Studio
 - **Prompt-to-Exam Generation**: Generate complete, high-quality assessments in seconds simply by writing a topic or domain (e.g. *"Quantum Physics", "TypeScript Advanced Types", "Organic Chemistry"*).
+- **Open-Ended Questions Support (`open_ended`)**: Support for open developmental questions where students redact conceptual answers. Formatted with private evaluation rubrics and ideal model answers that never leak to student devices.
 - **Dynamic Model Discovery & Cascade**: Automatically queries available models on your Groq key (`openai/gpt-oss-120b`, `llama-3.3-70b-versatile`, `llama-3.1-8b-instant`, etc.) with intelligent fallback cascades to ensure zero downtime.
 - **Direct Numeric Question Input**: Direct numeric box allowing educators to specify the exact number of questions (1 to 30) with keyboard precision, replacing imprecise sliders.
-- **Granular Customization**: Set question count (1 to 30), question format (multiple choice, true/false, or mixed), difficulty level (*Básico*, *Intermedio*, *Avanzado*, *Experto*), score weighting, and optional custom instructions.
-- **Zero-Leak Compatible**: Automatically isolates distractors and answer keys upon generation, preventing correct answers from reaching student devices.
+- **Granular Customization**: Set question count (1 to 30), question format (multiple choice, true/false, open-ended, or mixed), difficulty level (*Básico*, *Intermedio*, *Avanzado*, *Experto*), score weighting, and optional custom instructions.
+- **Zero-Leak Compatible**: Automatically isolates distractors, rubrics, and answer keys upon generation, preventing correct answers from reaching student devices.
+
+### 🧠 AI-Assisted Pedagogical Grading & Open Questions
+- **Semantic Conceptual Evaluation**: Uses Groq LLM acceleration (`openai/gpt-oss-120b`) to evaluate student open-ended responses against evaluation rubrics without requiring fragile exact-string matches.
+- **Structured Feedback**: Generates pedagogical score recommendations, detailed rationales, key conceptual strengths, and specific areas for student improvement.
+- **Teacher Review Modal & Override**: Teachers review AI evaluation suggestions in a dedicated dashboard modal (`StudentGradingReviewModal`), adjust scores with full pedagogical discretion, and publish official final grades.
+- **Batch & Individual Evaluation**: Teachers can evaluate single open answers or execute automated batch AI grading across all open-ended questions in a student submission.
+
+### 🔍 Student Results Search Board (`/results`)
+- **Public Results Portal**: Dedicated student query board where learners enter the Exam PIN and their Student Code / DNI to inspect their final grade, certification status, and detailed feedback.
+- **Pedagogical Feedback Breakdown**: Students see official points, teacher/AI justification, identified strengths, and improvement suggestions for each open-ended question.
+- **Real-Time Synchronized State**: In-progress or pending-review indicators update seamlessly once the educator completes and publishes evaluation.
 
 ### 📷 AI Camera Proctoring & Smartphone Detection
 - **Client-Side Edge Vision**: Powered by **TensorFlow.js** and the optimized **COCO-SSD** (`lite_mobilenet_v2`) neural model running real-time object detection directly inside the browser using WebGL hardware acceleration.
@@ -184,31 +196,37 @@ ExamTaker/
 │   │   ├── common/
 │   │   │   └── Navbar.tsx          # Responsive Auros navigation bar
 │   │   └── exam/
-│   │       └── AiExamGeneratorModal.tsx # Groq AI assessment generator modal
+│   │       ├── AiExamGeneratorModal.tsx       # Groq AI assessment generator modal
+│   │       ├── CameraMonitorWidget.tsx        # Edge-vision camera proctoring widget
+│   │       └── StudentGradingReviewModal.tsx  # Teacher AI grading & pedagogical review modal
 │   ├── contexts/
 │   │   └── AuthContext.tsx         # Teacher authentication & session provider
 │   ├── hooks/
 │   │   ├── useAntiCheat.ts         # Anti-cheat listeners, throttling & telemetry
+│   │   ├── useCameraProctoring.ts  # Real-time TensorFlow.js edge object detection
 │   │   └── useServerTimer.ts       # Server-synchronized countdown hook
 │   ├── pages/
 │   │   ├── LandingPage.tsx         # Landing page with platform overview & quick access
 │   │   ├── TeacherAuth.tsx         # Teacher login / registration form
 │   │   ├── TeacherDashboard.tsx    # Teacher exam overview, stats & actions
-│   │   ├── ExamEditor.tsx          # Exam creator, Word importer, AI trigger & shuffle toggle
-│   │   ├── ExamAudit.tsx           # Live submission monitor, retake resets & violation logs
-│   │   ├── StudentEntry.tsx        # PIN validation and student entry gate
-│   │   ├── StudentExam.tsx         # Live examination interface with randomized questions
-│   │   └── ExamFinished.tsx        # Post-submission feedback and score preview
+│   │   ├── ExamEditor.tsx          # Exam creator, Word importer, AI trigger & open questions
+│   │   ├── ExamAudit.tsx           # Live submission monitor, AI grading review & violation logs
+│   │   ├── StudentEntry.tsx        # PIN validation, student entry gate & results tab
+│   │   ├── StudentExam.tsx         # Live examination interface with open questions & camera
+│   │   ├── ExamFinished.tsx        # Post-submission feedback & results lookup link
+│   │   └── ResultsLookupPage.tsx   # Student results search board by Exam PIN + DNI
 │   ├── services/
 │   │   ├── firebase.ts             # Firebase App, Auth, and Firestore initialization
 │   │   ├── firebaseConfig.ts       # Environment-based Firebase configuration
 │   │   ├── examService.ts          # Exam CRUD operations with mock fallback
-│   │   ├── studentService.ts       # Submissions, answers, shuffle order & violation logging
-│   │   ├── aiExamService.ts        # Groq API client, model discovery & question parser
+│   │   ├── studentService.ts       # Submissions, answers, shuffle order & results query
+│   │   ├── aiExamService.ts        # Groq API client, model discovery & AI open answer grading
 │   │   └── mockStorage.ts          # LocalStorage simulation engine for offline dev
 │   ├── types/                      # Domain TypeScript interfaces (exam, auth, log, submission)
 │   ├── utils/
-│   │   └── shuffle.ts              # Cryptographic Fisher-Yates array shuffle
+│   │   ├── cameraProctoringUtils.ts # Detection debouncing and violation cooldown
+│   │   ├── grading.ts               # Decoupled scoring engine with open question clamping
+│   │   └── shuffle.ts               # Cryptographic Fisher-Yates array shuffle
 │   ├── App.tsx                     # Route declarations & role-based guards
 │   ├── index.css                   # Global Auros CSS & Tailwind imports
 │   └── main.tsx                    # Application bootstrap entrypoint
