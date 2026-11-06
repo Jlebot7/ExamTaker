@@ -36,7 +36,7 @@ export const AiExamGeneratorModal: React.FC<AiExamGeneratorModalProps> = ({
   // Form State
   const [topic, setTopic] = useState('');
   const [count, setCount] = useState(5);
-  const [questionType, setQuestionType] = useState<'single_choice' | 'true_false' | 'mixed'>('mixed');
+  const [questionType, setQuestionType] = useState<'single_choice' | 'true_false' | 'open_ended' | 'mixed'>('mixed');
   const [complexity, setComplexity] = useState<'basico' | 'intermedio' | 'avanzado' | 'experto'>('intermedio');
   const [pointsPerQuestion, setPointsPerQuestion] = useState(5);
   const [customInstructions, setCustomInstructions] = useState('');
@@ -266,11 +266,12 @@ export const AiExamGeneratorModal: React.FC<AiExamGeneratorModalProps> = ({
                     <Layers className="w-3.5 h-3.5 text-[#cbfffc]" />
                     <span>Tipo de Preguntas</span>
                   </label>
-                  <div className="grid grid-cols-3 gap-2">
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
                     {[
                       { id: 'mixed', label: 'Mixto' },
                       { id: 'single_choice', label: 'Opción Múlt.' },
                       { id: 'true_false', label: 'V / F' },
+                      { id: 'open_ended', label: 'Abiertas (IA)' },
                     ].map(t => (
                       <button
                         key={t.id}
@@ -517,31 +518,46 @@ export const AiExamGeneratorModal: React.FC<AiExamGeneratorModalProps> = ({
                         <div className="flex-1 min-w-0">
                           <div className="flex items-center gap-2 mb-1">
                             <span className="text-[10px] font-mono px-2 py-0.5 rounded-md bg-[#011d1c] text-[#edfffe] uppercase">
-                              #{idx + 1} • {q.type === 'true_false' ? 'Verdadero / Falso' : 'Opción Múltiple'}
+                              #{idx + 1} • {q.type === 'true_false' ? 'Verdadero / Falso' : q.type === 'open_ended' ? 'Pregunta Abierta (IA)' : 'Opción Múltiple'}
                             </span>
                             <span className="text-[10px] text-[#fde9ff] font-mono">{q.points} pts</span>
                           </div>
                           <p className="text-xs font-medium text-white leading-relaxed">{q.prompt}</p>
 
-                          {/* Options preview */}
-                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5 mt-2.5">
-                            {q.options.map(opt => {
-                              const isCorrect = q.correctOptionIds.includes(opt.id);
-                              return (
-                                <div
-                                  key={opt.id}
-                                  className={`px-2.5 py-1.5 rounded-md text-[11px] flex items-center justify-between border ${
-                                    isCorrect
-                                      ? 'bg-[#011d1c] border-[#00827c] text-[#edfffe] font-medium'
-                                      : 'bg-[#011d1c]/50 border-white/5 text-[#bbc7c6]'
-                                  }`}
-                                >
-                                  <span className="truncate">{opt.text}</span>
-                                  {isCorrect && <Check className="w-3 h-3 text-[#cbfffc] shrink-0" />}
-                                </div>
-                              );
-                            })}
-                          </div>
+                          {/* Options or Rubric preview */}
+                          {q.type === 'open_ended' ? (
+                            <div className="p-2.5 rounded-md bg-[#011d1c]/60 border border-white/10 text-[11px] space-y-1 mt-2.5">
+                              {q.rubric && (
+                                <p className="text-[#edfffe]">
+                                  <span className="font-mono text-[#cbfffc]">Rúbrica:</span> {q.rubric}
+                                </p>
+                              )}
+                              {q.idealAnswer && (
+                                <p className="text-[#bbc7c6]">
+                                  <span className="font-mono text-[#fde9ff]">Respuesta Modelo:</span> {q.idealAnswer}
+                                </p>
+                              )}
+                            </div>
+                          ) : (
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5 mt-2.5">
+                              {q.options.map(opt => {
+                                const isCorrect = q.correctOptionIds.includes(opt.id);
+                                return (
+                                  <div
+                                    key={opt.id}
+                                    className={`px-2.5 py-1.5 rounded-md text-[11px] flex items-center justify-between border ${
+                                      isCorrect
+                                        ? 'bg-[#011d1c] border-[#00827c] text-[#edfffe] font-medium'
+                                        : 'bg-[#011d1c]/50 border-white/5 text-[#bbc7c6]'
+                                    }`}
+                                  >
+                                    <span className="truncate">{opt.text}</span>
+                                    {isCorrect && <Check className="w-3 h-3 text-[#cbfffc] shrink-0" />}
+                                  </div>
+                                );
+                              })}
+                            </div>
+                          )}
 
                           {q.explanation && (
                             <p className="text-[10px] text-[#bbc7c6] mt-2 italic">
