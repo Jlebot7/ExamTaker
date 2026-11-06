@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { 
   X, 
   Sparkles, 
@@ -34,13 +34,22 @@ export const StudentGradingReviewModal: React.FC<StudentGradingReviewModalProps>
   submission,
   onSaveGrading,
 }) => {
-  if (!isOpen) return null;
-
   // Filter only open-ended questions
-  const openQuestions = exam.questions.filter(q => q.type === 'open_ended');
+  const openQuestions = useMemo(
+    () => exam.questions.filter(q => q.type === 'open_ended'),
+    [exam.questions]
+  );
 
   // Local state for open question grades and feedback
-  const [grades, setGrades] = useState<Record<string, OpenQuestionGrade>>(() => {
+  const [grades, setGrades] = useState<Record<string, OpenQuestionGrade>>({});
+  const [aiLoading, setAiLoading] = useState<Record<string, boolean>>({});
+  const [isBatchEvaluating, setIsBatchEvaluating] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
+
+  // Synchronize state when the modal opens or when submission changes
+  useEffect(() => {
+    if (!isOpen) return;
     const initial: Record<string, OpenQuestionGrade> = {};
     openQuestions.forEach(q => {
       const existing = submission.openQuestionScores?.[q.id];
@@ -53,16 +62,12 @@ export const StudentGradingReviewModal: React.FC<StudentGradingReviewModalProps>
         };
       }
     });
-    return initial;
-  });
-
-  const [aiLoading, setAiLoading] = useState<Record<string, boolean>>({});
-  const [isBatchEvaluating, setIsBatchEvaluating] = useState(false);
-  const [isSaving, setIsSaving] = useState(false);
-  const [errorMessage, setErrorMessage] = useState<string | null>(null);
+    setGrades(initial);
+    setErrorMessage(null);
+  }, [isOpen, submission.studentUid, submission.openQuestionScores, openQuestions]);
 
   // Auto-calculated score from closed questions
-  const closedEarnedPoints = React.useMemo(() => {
+  const closedEarnedPoints = useMemo(() => {
     let earned = 0;
     exam.questions.forEach(q => {
       if (q.type !== 'open_ended') {
@@ -198,6 +203,8 @@ export const StudentGradingReviewModal: React.FC<StudentGradingReviewModalProps>
       setIsSaving(false);
     }
   };
+
+  if (!isOpen) return null;
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/80 backdrop-blur-md animate-fadeIn">
