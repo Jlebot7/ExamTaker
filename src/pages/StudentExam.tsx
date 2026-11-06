@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { 
   Clock, 
@@ -9,7 +9,8 @@ import {
   Send, 
   AlertTriangle,
   Maximize2,
-  Minimize2
+  Minimize2,
+  FileText
 } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import { examService } from '../services/examService';
