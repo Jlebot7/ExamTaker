@@ -8,7 +8,6 @@ import {
   AlertCircle, 
   BookOpen, 
   CheckCircle2, 
-  Lightbulb, 
   TrendingUp, 
   RefreshCw 
 } from 'lucide-react';
