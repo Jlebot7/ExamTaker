@@ -169,6 +169,35 @@ export const StudentExam: React.FC = () => {
     }
   };
 
+  // Save open-ended text response in real time (debounced)
+  const textDebounceTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const handleTextAnswer = (questionId: string, text: string) => {
+    if (isSubmittingFinal) return;
+
+    setAnswers(prev => ({
+      ...prev,
+      [questionId]: text,
+    }));
+
+    if (textDebounceTimerRef.current) {
+      clearTimeout(textDebounceTimerRef.current);
+    }
+
+    setSavingAnswer(true);
+    textDebounceTimerRef.current = setTimeout(async () => {
+      try {
+        if (examId && user) {
+          await studentService.saveAnswer(examId, user.uid, questionId, text);
+        }
+      } catch (err) {
+        console.error('Error al guardar respuesta abierta:', err);
+      } finally {
+        setSavingAnswer(false);
+      }
+    }, 500);
+  };
+
   // Final manual submission by student
   const handleConfirmSubmit = async () => {
     if (!examId || !user) return;
@@ -331,7 +360,11 @@ export const StudentExam: React.FC = () => {
         <div className="flex items-center gap-1.5 overflow-x-auto pb-1 scrollbar-none touch-pan-x">
           {orderedQuestions.map((q, idx) => {
             const isCurrent = idx === currentQuestionIndex;
-            const isAnswered = Boolean(answers[q.id]);
+            const isAnswered = Boolean(
+              typeof answers[q.id] === 'string'
+                ? (answers[q.id] as string).trim().length > 0
+                : answers[q.id]
+            );
 
             return (
               <button
@@ -398,44 +431,73 @@ export const StudentExam: React.FC = () => {
               </p>
             </div>
 
-            {/* Options List */}
-            <div className="space-y-3 pt-2">
-              {currentOptions.map((option, idx) => {
-                const isSelected = answers[currentQ.id] === option.id;
+            {/* Options List or Open-Ended Answer Field */}
+            {currentQ.type === 'open_ended' ? (
+              <div className="space-y-3 pt-2">
+                <div className="flex items-center justify-between text-xs text-[#edfffe]">
+                  <span className="font-medium uppercase tracking-[0.08em] flex items-center gap-1.5 font-mono">
+                    <FileText className="w-3.5 h-3.5 text-[#cbfffc]" />
+                    <span>Redacta tu respuesta:</span>
+                  </span>
+                  <span className="text-[11px] font-mono text-[#bbc7c6]">
+                    {((answers[currentQ.id] as string) || '').length} caracteres
+                  </span>
+                </div>
 
-                return (
-                  <button
-                    key={option.id}
-                    type="button"
-                    onClick={() => handleSelectOption(currentQ.id, option.id)}
-                    className={`w-full text-left p-4 rounded-[6px] border transition flex items-start gap-3.5 ${
-                      isSelected
-                        ? 'bg-[#003734] border-[#00827c] text-white'
-                        : 'surface-deep border-white/8 hover:bg-[#003734]/50 hover:border-white/15 text-[#bbc7c6]'
-                    }`}
-                  >
-                    <span
-                      className={`w-5 h-5 rounded-[4px] border flex items-center justify-center shrink-0 mt-0.5 transition ${
+                <textarea
+                  rows={8}
+                  value={(answers[currentQ.id] as string) || ''}
+                  onChange={e => handleTextAnswer(currentQ.id, e.target.value)}
+                  placeholder="Escribe aquí tu análisis, fundamentación y desarrollo de la respuesta..."
+                  className="w-full bg-[#011d1c] border border-white/15 focus:border-[#cbfffc] rounded-[8px] p-4 text-xs sm:text-sm text-white placeholder-[#707777] outline-none transition leading-relaxed resize-y font-sans min-h-[160px]"
+                />
+
+                <div className="p-3 rounded-[6px] bg-[#003734]/30 border border-white/8 text-[11px] text-[#bbc7c6] flex flex-col sm:flex-row sm:items-center justify-between gap-1">
+                  <span>💡 Tu respuesta se guarda en vivo y será evaluada por el docente con apoyo de IA.</span>
+                  {savingAnswer && (
+                    <span className="text-[#cbfffc] font-mono animate-pulse shrink-0">Guardando...</span>
+                  )}
+                </div>
+              </div>
+            ) : (
+              <div className="space-y-3 pt-2">
+                {currentOptions.map((option, idx) => {
+                  const isSelected = answers[currentQ.id] === option.id;
+
+                  return (
+                    <button
+                      key={option.id}
+                      type="button"
+                      onClick={() => handleSelectOption(currentQ.id, option.id)}
+                      className={`w-full text-left p-4 rounded-[6px] border transition flex items-start gap-3.5 ${
                         isSelected
-                          ? 'border-[#00827c] bg-[#00827c] text-white'
-                          : 'border-white/20'
+                          ? 'bg-[#003734] border-[#00827c] text-white'
+                          : 'surface-deep border-white/8 hover:bg-[#003734]/50 hover:border-white/15 text-[#bbc7c6]'
                       }`}
                     >
-                      {isSelected && <span className="w-2 h-2 rounded-[2px] bg-white"></span>}
-                    </span>
+                      <span
+                        className={`w-5 h-5 rounded-[4px] border flex items-center justify-center shrink-0 mt-0.5 transition ${
+                          isSelected
+                            ? 'border-[#00827c] bg-[#00827c] text-white'
+                            : 'border-white/20'
+                        }`}
+                      >
+                        {isSelected && <span className="w-2 h-2 rounded-[2px] bg-white"></span>}
+                      </span>
 
-                    <div className="flex-1">
-                      <span className="text-xs font-mono mr-2 text-[#bbc7c6]">
-                        {String.fromCharCode(65 + idx)})
-                      </span>
-                      <span className={`text-xs sm:text-sm ${isSelected ? 'text-white font-medium' : 'text-[#bbc7c6]'}`}>
-                        {option.text}
-                      </span>
-                    </div>
-                  </button>
-                );
-              })}
-            </div>
+                      <div className="flex-1">
+                        <span className="text-xs font-mono mr-2 text-[#bbc7c6]">
+                          {String.fromCharCode(65 + idx)})
+                        </span>
+                        <span className={`text-xs sm:text-sm ${isSelected ? 'text-white font-medium' : 'text-[#bbc7c6]'}`}>
+                          {option.text}
+                        </span>
+                      </div>
+                    </button>
+                  );
+                })}
+              </div>
+            )}
           </div>
 
           {/* Navigation Controls Below Question */}
@@ -499,7 +561,11 @@ export const StudentExam: React.FC = () => {
             <div className="grid grid-cols-4 sm:grid-cols-5 lg:grid-cols-4 gap-2">
               {orderedQuestions.map((q, idx) => {
                 const isCurrent = idx === currentQuestionIndex;
-                const isAnswered = Boolean(answers[q.id]);
+                const isAnswered = Boolean(
+                  typeof answers[q.id] === 'string'
+                    ? (answers[q.id] as string).trim().length > 0
+                    : answers[q.id]
+                );
 
                 return (
                   <button
