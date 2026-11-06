@@ -237,7 +237,7 @@ export const ExamFinished: React.FC = () => {
                           {question?.prompt || `Pregunta ${qId}`}
                         </span>
                         <span className="text-xs font-mono px-2 py-0.5 rounded-[4px] surface-deep text-emerald-300 border border-emerald-500/30 whitespace-nowrap">
-                          {grade.score} / {grade.maxPoints} pts
+                          {grade.points} / {question?.points || 1} pts
                         </span>
                       </div>
 
@@ -245,9 +245,9 @@ export const ExamFinished: React.FC = () => {
                         &quot;{studentAnswer}&quot;
                       </div>
 
-                      {(grade.feedback || grade.rationale) && (
+                      {(grade.feedback || grade.aiRationale) && (
                         <p className="text-xs text-[#edfffe] leading-relaxed">
-                          {grade.feedback || grade.rationale}
+                          {grade.feedback || grade.aiRationale}
                         </p>
                       )}
 
