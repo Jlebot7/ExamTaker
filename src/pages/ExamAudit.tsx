@@ -13,11 +13,13 @@ import {
   RotateCcw,
   AlertCircle,
   BarChart3,
-  X
+  X,
+  Sparkles
 } from 'lucide-react';
 import { examService } from '../services/examService';
 import { studentService } from '../services/studentService';
-import type { Exam, ExamKey, Submission, IntegrityLog } from '../types';
+import type { Exam, ExamKey, Submission, IntegrityLog, OpenQuestionGrade } from '../types';
+import { StudentGradingReviewModal } from '../components/exam/StudentGradingReviewModal';
 
 export const ExamAudit: React.FC = () => {
   const { examId } = useParams<{ examId: string }>();
@@ -44,6 +46,50 @@ export const ExamAudit: React.FC = () => {
   const [isResetting, setIsResetting] = useState(false);
   const [actionSuccess, setActionSuccess] = useState<string | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
+
+  // Student Open Questions Grading Review Modal
+  const [studentToGrade, setStudentToGrade] = useState<Submission | null>(null);
+
+  const hasOpenQuestions = useMemo(() => {
+    return Boolean(exam?.questions.some(q => q.type === 'open_ended'));
+  }, [exam?.questions]);
+
+  const handleSaveOpenGrading = async (
+    studentUid: string,
+    openQuestionScores: Record<string, OpenQuestionGrade>
+  ) => {
+    if (!examId || !examKey) return;
+    const sub = submissions[studentUid];
+    if (!sub) return;
+
+    try {
+      const { finalScore, maxScore } = await studentService.saveManualOpenGrades(
+        examId,
+        studentUid,
+        openQuestionScores,
+        examKey,
+        sub.status
+      );
+
+      setSubmissions(prev => ({
+        ...prev,
+        [studentUid]: {
+          ...prev[studentUid],
+          finalScore,
+          maxScore,
+          openQuestionScores,
+        },
+      }));
+
+      setActionSuccess(
+        `Calificación de ${sub.studentName} guardada y publicada exitosamente: ${finalScore} / ${maxScore} pts.`
+      );
+      setTimeout(() => setActionSuccess(null), 6000);
+    } catch (err: unknown) {
+      console.error('Error al guardar corrección abierta:', err);
+      setActionError('Error al guardar la calificación en el servidor');
+    }
+  };
 
   useEffect(() => {
     if (!examId) return;
@@ -498,11 +544,21 @@ export const ExamAudit: React.FC = () => {
 
                       <td className="py-4 px-4 font-mono">
                         {sub.finalScore !== null ? (
-                          <span className="font-medium text-[#fde9ff]">
-                            {sub.finalScore} / {sub.maxScore || exam?.totalPoints} pts
-                          </span>
+                          <div>
+                            <span className="font-medium text-[#fde9ff] block">
+                              {sub.finalScore} / {sub.maxScore || exam?.totalPoints} pts
+                            </span>
+                            {hasOpenQuestions && sub.openQuestionScores && Object.keys(sub.openQuestionScores).length > 0 && (
+                              <span className="text-[10px] text-emerald-400 font-sans block">
+                                ✓ Abiertas corregidas
+                              </span>
+                            )}
+                          </div>
                         ) : (
-                          <span className="text-[#707777] italic">Pendiente</span>
+                          <div className="flex items-center gap-1.5 text-amber-300 font-sans text-[11px]">
+                            <span className="w-1.5 h-1.5 rounded-full bg-amber-400 animate-pulse"></span>
+                            <span>{hasOpenQuestions ? 'Revisión IA Pendiente' : 'Pendiente'}</span>
+                          </div>
                         )}
                       </td>
 
@@ -525,6 +581,17 @@ export const ExamAudit: React.FC = () => {
 
                       <td className="py-4 px-4 text-right">
                         <div className="inline-flex items-center gap-2">
+                          {hasOpenQuestions && examKey && sub.status !== 'in_progress' && (
+                            <button
+                              onClick={() => setStudentToGrade(sub)}
+                              title="Revisar respuestas abiertas con asistencia de IA"
+                              className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-[6px] bg-[#003734] border border-[#00827c]/40 hover:border-[#cbfffc] text-xs font-medium text-[#cbfffc] hover:text-white transition"
+                            >
+                              <Sparkles className="w-3.5 h-3.5 text-[#cbfffc]" />
+                              <span>Calificar con IA</span>
+                            </button>
+                          )}
+
                           <button
                             onClick={() => setSelectedStudent(sub)}
                             className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-[6px] surface-deep border border-white/10 hover:border-cyan-400 text-xs font-medium text-[#edfffe] hover:text-white transition"
@@ -821,6 +888,18 @@ export const ExamAudit: React.FC = () => {
             </div>
           </div>
         </div>
+      )}
+
+      {/* Student Open Questions Grading Review Modal */}
+      {studentToGrade && exam && examKey && (
+        <StudentGradingReviewModal
+          isOpen={Boolean(studentToGrade)}
+          onClose={() => setStudentToGrade(null)}
+          exam={exam}
+          examKey={examKey}
+          submission={studentToGrade}
+          onSaveGrading={handleSaveOpenGrading}
+        />
       )}
     </div>
   );
