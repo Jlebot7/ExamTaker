@@ -56,12 +56,20 @@ export const Navbar: React.FC = () => {
           <Link
             to="/student"
             className={`text-xs uppercase tracking-[0.12em] font-medium transition ${
-              location.pathname.startsWith('/student') || location.pathname.startsWith('/exam')
+              location.pathname === '/student' || location.pathname.startsWith('/exam/')
                 ? 'text-white'
                 : 'text-[#bbc7c6] hover:text-white'
             }`}
           >
             Portal Evaluación
+          </Link>
+          <Link
+            to="/results"
+            className={`text-xs uppercase tracking-[0.12em] font-medium transition ${
+              location.pathname.startsWith('/results') ? 'text-white' : 'text-[#bbc7c6] hover:text-white'
+            }`}
+          >
+            Resultados
           </Link>
           <Link
             to="/teacher"
@@ -171,12 +179,23 @@ export const Navbar: React.FC = () => {
               to="/student"
               onClick={closeMenu}
               className={`px-3 py-2 rounded-md text-xs uppercase tracking-[0.12em] font-medium transition ${
-                location.pathname.startsWith('/student') || location.pathname.startsWith('/exam')
+                location.pathname === '/student' || location.pathname.startsWith('/exam/')
                   ? 'bg-[#003734] text-white'
                   : 'text-[#bbc7c6] hover:text-white hover:bg-white/5'
               }`}
             >
               Portal Evaluación
+            </Link>
+            <Link
+              to="/results"
+              onClick={closeMenu}
+              className={`px-3 py-2 rounded-md text-xs uppercase tracking-[0.12em] font-medium transition ${
+                location.pathname.startsWith('/results')
+                  ? 'bg-[#003734] text-white'
+                  : 'text-[#bbc7c6] hover:text-white hover:bg-white/5'
+              }`}
+            >
+              Resultados
             </Link>
             <Link
               to="/teacher"
